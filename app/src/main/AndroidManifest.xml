@@ -2,11 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="Mobilecode"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher"
         android:allowBackup="false"
+        android:extractNativeLibs="true"
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.Mobilecode">
         <activity android:name=".MainActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden|smallestScreenSize|screenLayout">
@@ -24,5 +28,9 @@
             </intent-filter>
         </activity>
         <activity android:name=".AboutActivity" android:exported="false" />
+        <activity android:name=".SetupActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
+        <service android:name=".LocalServerService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Runs the user's local OpenCode coding-agent server" />
+        </service>
     </application>
 </manifest>

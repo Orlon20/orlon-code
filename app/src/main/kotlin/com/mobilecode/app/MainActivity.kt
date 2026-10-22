@@ -27,6 +27,12 @@ class MainActivity : AppCompatActivity() {
     private var keepAwake = false
     private var fileCb: ValueCallback<Array<Uri>>? = null
     private var failed = false
+    private lateinit var prefs: Prefs
+    private lateinit var retryBtn: android.widget.Button
+    private lateinit var altBtn: android.widget.Button
+    private var starting = false
+    private val local get() = !prefs.remote
+    private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
     private val picker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
         fileCb?.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(it.resultCode, it.data)); fileCb = null
@@ -36,8 +42,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         store = ServerStore(this)
-        server = store.active()
-        if (server == null) { startActivity(Intent(this, ConnectActivity::class.java)); finish(); return }
+        prefs = Prefs(this)
+        if (local) {
+            if (!Sandbox.isInstalled(Sandbox.paths(this))) { startActivity(Intent(this, SetupActivity::class.java)); finish(); return }
+            server = prefs.localServer()
+            if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            server = store.active()
+            if (server == null) { startActivity(Intent(this, ConnectActivity::class.java)); finish(); return }
+        }
 
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
@@ -54,10 +68,10 @@ class MainActivity : AppCompatActivity() {
                     if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
-                    if (r.isForMainFrame) showError("Server unreachable.\nCheck it is running, or rescan the code.")
+                    if (r.isForMainFrame) showError(unreachableMsg())
                 }
                 override fun onReceivedHttpError(v: WebView, r: WebResourceRequest, e: WebResourceResponse) {
-                    if (r.isForMainFrame && e.statusCode == 401) showError("Wrong password or the session changed.\nRescan the code.")
+                    if (r.isForMainFrame && e.statusCode == 401) showError(wrongPasswordMsg())
                 }
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                     val host = Uri.parse(server!!.url).host
@@ -78,9 +92,10 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(Palette.BG); visibility = android.view.View.GONE; setPadding(dp(24), 0, dp(24), 0)
             addView(label("Mobilecode", 24f, mono = true).apply { setPadding(0, 0, 0, dp(16)) })
             addView(errorText)
-            addView(primaryButton("Retry") { load() }, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(24) })
-            addView(ghostButton("Rescan / change server") { startActivity(Intent(this@MainActivity, ConnectActivity::class.java)) },
-                android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
+            retryBtn = primaryButton("Retry") { if (local) restartLocal() else load() }
+            altBtn = ghostButton(if (local) "Connect to a PC instead" else "Rescan / change server") { startActivity(Intent(this@MainActivity, ConnectActivity::class.java)) }
+            addView(retryBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(24) })
+            addView(altBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         }
         val menu = TextView(this).apply {
             text = "⋮"; textSize = 20f; setTextColor(Palette.FG); gravity = Gravity.CENTER; alpha = 0.55f
@@ -101,7 +116,40 @@ class MainActivity : AppCompatActivity() {
         load()
     }
 
+    private fun unreachableMsg() = if (local) "Your agent isn't responding.\nTap Retry to restart it." else "Server unreachable.\nCheck it is running, or rescan the code."
+    private fun wrongPasswordMsg() = if (local) "Your agent restarted with new credentials.\nTap Retry." else "Wrong password or the session changed.\nRescan the code."
+
+    /** Start the on-device server (if needed), wait for it to answer, then load the UI. */
+    private fun startLocal() {
+        if (starting) return
+        starting = true; failed = false
+        showMessage("Starting your agent…", buttons = false)
+        LocalServerService.start(this)
+        val s = prefs.localServer()
+        thread {
+            var res = CheckResult.UNREACHABLE
+            val deadline = System.currentTimeMillis() + 120_000
+            while (System.currentTimeMillis() < deadline) {
+                res = checkServer(s)
+                if (res == CheckResult.OK) break
+                Thread.sleep(1000)
+            }
+            runOnUiThread {
+                starting = false
+                server = s
+                if (res == CheckResult.OK) { failed = false; errorView.visibility = android.view.View.GONE; web.loadUrl(s.url + "/", mapOf("Authorization" to basicAuth(s.password))) }
+                else showError("Your agent didn't start.\nTap Retry, or see server.log in the app files.")
+            }
+        }
+    }
+
+    private fun restartLocal() {
+        LocalServerService.stop(this)
+        thread { Thread.sleep(1500); runOnUiThread { startLocal() } }
+    }
+
     private fun load() {
+        if (local) { startLocal(); return }
         val s = server ?: return
         failed = false; errorView.visibility = android.view.View.GONE
         // Pre-check so 401 / unreachable get distinct messages even when the WebView hides them.
@@ -110,32 +158,44 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 when (res) {
                     CheckResult.OK -> web.loadUrl(s.url + "/", mapOf("Authorization" to basicAuth(s.password)))
-                    CheckResult.WRONG_PASSWORD -> showError("Wrong password or the session changed.\nRescan the code.")
-                    CheckResult.UNREACHABLE -> showError("Server unreachable.\nCheck it is running, or rescan the code.")
+                    CheckResult.WRONG_PASSWORD -> showError(wrongPasswordMsg())
+                    CheckResult.UNREACHABLE -> showError(unreachableMsg())
                 }
             }
         }
     }
 
-    private fun showError(msg: String) {
-        failed = true; refresh.isRefreshing = false
+    private fun showError(msg: String) { failed = true; showMessage(msg, buttons = true) }
+
+    private fun showMessage(msg: String, buttons: Boolean) {
+        refresh.isRefreshing = false
         errorText.text = msg; errorView.visibility = android.view.View.VISIBLE
+        val v = if (buttons) android.view.View.VISIBLE else android.view.View.GONE
+        retryBtn.visibility = v; altBtn.visibility = v
     }
 
     private fun showMenu(anchor: android.view.View) {
         PopupMenu(this, anchor).apply {
             menu.add(0, 1, 0, if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
             menu.add(0, 2, 1, "Reload")
-            menu.add(0, 3, 2, "Switch / add server")
-            menu.add(0, 4, 3, "Forget this server")
+            if (local) {
+                menu.add(0, 6, 2, "Restart agent")
+                menu.add(0, 3, 3, "Connect to a PC instead")
+            } else {
+                menu.add(0, 3, 2, "Switch / add server")
+                menu.add(0, 4, 3, "Forget this server")
+                menu.add(0, 7, 3, "Use on-device agent")
+            }
             menu.add(0, 5, 4, "About")
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-                    2 -> load()
+                    2 -> if (local) web.reload() else load()
                     3 -> startActivity(Intent(this@MainActivity, ConnectActivity::class.java))
                     4 -> { store.forget(server!!.url); startActivity(Intent(this@MainActivity, ConnectActivity::class.java)); finish() }
                     5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                    6 -> restartLocal()
+                    7 -> { prefs.remote = false; recreate() }
                 }; true
             }
             show()
@@ -146,6 +206,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (local) {
+            if (!starting && !failed && ::web.isInitialized) thread { if (checkServer(prefs.localServer()) != CheckResult.OK) runOnUiThread { startLocal() } }
+            return
+        }
         val a = store.active()
         if (a != null && a != server) { server = a; load() } else if (failed) load()
     }

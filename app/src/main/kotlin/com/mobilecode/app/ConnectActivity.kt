@@ -70,6 +70,7 @@ class ConnectActivity : AppCompatActivity() {
                 when (res) {
                     CheckResult.OK -> {
                         store.save(server)
+                        Prefs(this).remote = true
                         startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
                         finish()
                     }
