@@ -4,11 +4,9 @@
 
 ### AI-powered coding, directly from your phone.
 
-**Standalone • Open Source • On-Device Builds • AI Agents**
+**Standalone • Open Source • Free Coding Agents**
 
 Orlon Code is a free, open-source development environment for Android powered by **OpenCode**.
-
-Edit projects, use AI agents, run terminal commands, and build Android apps directly on your device with no external computer required.
 
 </div>
 
