@@ -1,0 +1,32 @@
+#!/bin/sh
+# orlon-project clone <https-url> <name>      |      orlon-project import-zip <zip-file> <name>
+. /usr/local/bin/orlon-env
+ROOT=/root/projects
+err() { echo "ORLON_ERROR $*" >&2; echo "ORLON_RESULT failed"; exit 2; }
+valid_name() { echo "$1" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$' && ! echo "$1" | grep -q '\.\.'; }
+mkdir -p "$ROOT"
+case "$1" in
+  clone)
+    url="$2"; name="$3"
+    case "$url" in https://*) ;; *) err "only https:// repository URLs are supported" ;; esac
+    valid_name "$name" || err "invalid project name"
+    [ -e "$ROOT/$name" ] && err "a project named $name already exists"
+    echo "ORLON_STEP Cloning $url"
+    GIT_TERMINAL_PROMPT=0 git clone --depth 1 --progress -- "$url" "$ROOT/$name" 2>&1 || { rm -rf "$ROOT/$name"; err "git clone failed (private repositories are not supported here)"; }
+    echo "ORLON_PROJECT $ROOT/$name"; echo "ORLON_RESULT success" ;;
+  import-zip)
+    zip="$2"; name="$3"
+    [ -f "$zip" ] || err "zip file not found"
+    valid_name "$name" || err "invalid project name"
+    [ -e "$ROOT/$name" ] && err "a project named $name already exists"
+    echo "ORLON_STEP Importing $name"
+    tmp=$(mktemp -d /tmp/orlon-import.XXXXXX)
+    unzip -q -o "$zip" -d "$tmp" || { rm -rf "$tmp"; err "could not unzip the file"; }
+    find "$tmp" -type l -delete          # never keep symlinks from an untrusted archive
+    n=$(ls -A "$tmp" | wc -l)
+    if [ "$n" -eq 1 ] && [ -d "$tmp/$(ls -A "$tmp")" ]; then mv "$tmp/$(ls -A "$tmp")" "$ROOT/$name"; rm -rf "$tmp"
+    else mv "$tmp" "$ROOT/$name"; fi
+    rm -f "$zip"
+    echo "ORLON_PROJECT $ROOT/$name"; echo "ORLON_RESULT success" ;;
+  *) echo "usage: orlon-project clone <https-url> <name> | import-zip <zip> <name>"; exit 2 ;;
+esac

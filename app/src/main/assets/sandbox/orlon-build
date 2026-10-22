@@ -1,0 +1,171 @@
+#!/bin/sh
+# orlon-build [-C project-dir | project-dir] [debug|release|bundle | gradle tasks/flags...]
+#   Builds an Android project on this phone with the project's own Gradle wrapper and collects the APKs.
+#   Installs the Android build tools by itself the first time (about 750 MB).
+#   --wait     keep waiting for a build that is still running      --status   show the state of the last build
+# The build runs as a background job, so long first builds survive short tool time-outs: if it is not finished
+# after ~90 s (when run by the agent) this prints ORLON_RUNNING and you simply run `orlon-build --wait` again.
+. /usr/local/bin/orlon-env
+
+usage() {
+  sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'
+  echo; echo "examples:  orlon-build -C /root/projects/MyApp          (debug APK)"
+  echo "           orlon-build -C /root/projects/MyApp release  (signed release APK)"
+  echo "           orlon-build --wait -C /root/projects/MyApp"
+}
+
+MODE=run; DIR="$PWD"; DIRSET=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) usage; exit 0 ;;
+    -C) DIR="$2"; DIRSET=1; shift 2 ;;
+    -q|--quiet) shift ;;
+    --wait) MODE=wait; shift ;;
+    --status) MODE=status; shift ;;
+    --job) MODE=job; shift ;;
+    --) shift; break ;;
+    -*) break ;;
+    *) if [ "$DIRSET" = 0 ] && [ -d "$1" ]; then DIR="$1"; DIRSET=1; shift; else break; fi ;;
+  esac
+done
+case "$1" in
+  debug|apk) shift; set -- assembleDebug "$@" ;;
+  release) shift; set -- assembleRelease "$@" ;;
+  bundle) shift; set -- bundleRelease "$@" ;;
+  "") set -- assembleDebug ;;
+esac
+
+fail() { echo "ORLON_ERROR $*" >&2; echo "ORLON_RESULT failed"; exit "${2:-2}"; }
+
+[ -d "$DIR" ] || fail "no such directory: $DIR (projects live in /root/projects; list them with: ls /root/projects)"
+# find the Gradle root: this dir, a parent, or a single child directory
+root=""; d="$DIR"
+while [ "$d" != "/" ] && [ -n "$d" ]; do
+  if [ -f "$d/gradlew" ] || [ -f "$d/settings.gradle" ] || [ -f "$d/settings.gradle.kts" ]; then root="$d"; break; fi
+  d=$(dirname "$d")
+done
+if [ -z "$root" ]; then
+  for c in "$DIR"/*/; do
+    if [ -f "${c}gradlew" ] || [ -f "${c}settings.gradle" ] || [ -f "${c}settings.gradle.kts" ]; then root="${c%/}"; break; fi
+  done
+fi
+[ -n "$root" ] || fail "no Gradle project found in $DIR (looked for gradlew / settings.gradle[.kts]). To start a new app: orlon-new-android <Name> <package>"
+
+JD="$root/.orlon"; LOG="$JD/last-build.log"; DONE="$JD/job.done"; PIDF="$JD/job.pid"
+mkdir -p "$JD/out"
+
+summary() { # the lines an agent needs, without the Gradle noise
+  awk '/^\* What went wrong:/ {c=5} c>0 {print; c--; next} /^e: |: error:|^ORLON_|^BUILD |FAILED$|AAPT: error/ {print}' "$LOG" 2>/dev/null | awk '!seen[$0]++' | head -70
+}
+
+job_running() { [ -f "$PIDF" ] && [ ! -f "$DONE" ] && kill -0 "$(cat "$PIDF" 2>/dev/null)" 2>/dev/null; }
+
+# ---- the actual build (runs inside the detached job) -------------------------------------------------
+do_build() {
+  say() { echo "ORLON_STEP $*"; }
+  if ! /usr/local/bin/orlon-toolchain status >/dev/null 2>&1; then
+    echo "ORLON_NOTE First build on this phone: installing the Android build tools (about 750 MB, a few minutes)..."
+    /usr/local/bin/orlon-toolchain install || { echo "ORLON_ERROR the Android build tools could not be installed (check the internet connection and free storage)" >&2; echo "ORLON_RESULT failed"; return 3; }
+  fi
+  /usr/local/bin/orlon-toolchain fixup
+  case " $* " in *[Rr]elease*)
+    /usr/local/bin/orlon-keystore ensure >/dev/null
+    set -a; . "$ORLON_HOME/keystore.env"; set +a ;;
+  esac
+  cd "$root" || return 2
+  [ -f .gitignore ] && ! grep -qx '.orlon/' .gitignore && echo '.orlon/' >> .gitignore
+  # a committed local.properties would point Gradle at somebody else's SDK
+  if [ -f local.properties ] && grep -q '^sdk.dir=' local.properties && ! grep -q '^sdk.dir=/opt/android-sdk$' local.properties; then
+    sed -i 's|^sdk.dir=.*|sdk.dir=/opt/android-sdk|' local.properties
+  fi
+  touch "$JD/.start"
+  say "Building $root: $*"
+  if [ -f gradlew ]; then GRADLE="sh ./gradlew"; else
+    GV=8.14.3
+    if [ ! -x /opt/gradle/gradle-$GV/bin/gradle ]; then
+      say "No Gradle wrapper in this project; downloading Gradle $GV"
+      mkdir -p /opt/gradle && wget -q -O /tmp/gradle.zip "https://services.gradle.org/distributions/gradle-$GV-bin.zip" && unzip -q -o /tmp/gradle.zip -d /opt/gradle && rm -f /tmp/gradle.zip \
+        || { echo "ORLON_ERROR could not download Gradle" >&2; echo "ORLON_RESULT failed"; return 4; }
+    fi
+    GRADLE="/opt/gradle/gradle-$GV/bin/gradle"
+  fi
+  $GRADLE "$@" --no-daemon --console=plain -I /usr/local/bin/orlon.init.gradle 2>&1 | awk '!/__bionic_open_tzdata/ { print; fflush() }' > "$JD/gradle.out"
+  cat "$JD/gradle.out"
+  if grep -q '^BUILD SUCCESSFUL' "$JD/gradle.out"; then
+    found=0
+    apks=$(find . -path '*/build/outputs/apk/*' -name '*.apk' -newer "$JD/.start" 2>/dev/null)
+    if [ -z "$apks" ]; then   # an unchanged project is "up to date": Gradle skips packaging, so use the APK that is already there
+      case " $* " in *[Rr]elease*) v=release ;; *[Dd]ebug*) v=debug ;; *) v="" ;; esac
+      apks=$(find . -path '*/build/outputs/apk/*' -name '*.apk' 2>/dev/null | { if [ -n "$v" ]; then grep -i "/$v/"; else cat; fi; })
+    fi
+    for apk in $apks; do
+      name=$(basename "$apk")
+      if [ -e "$JD/out/$name" ] && [ "$JD/out/$name" -nt "$JD/.start" ]; then name=$(echo "$apk" | sed 's|^\./||; s|/build/outputs/apk/|-|; s|/|-|g'); fi
+      cp -f "$apk" "$JD/out/$name"
+      if "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$apk" >/dev/null 2>&1; then sig=signed; else sig=unsigned; fi
+      echo "ORLON_APK $JD/out/$name ($sig)"; found=1
+    done
+    for aab in $(find . -path '*/build/outputs/bundle/*' -name '*.aab' -newer "$JD/.start" 2>/dev/null); do
+      cp -f "$aab" "$JD/out/$(basename "$aab")"; echo "ORLON_BUNDLE $JD/out/$(basename "$aab")"; found=1
+    done
+    [ $found -eq 1 ] || echo "ORLON_NOTE the build succeeded but produced no APK (try: orlon-build -C $root debug)"
+    echo "ORLON_RESULT success"; return 0
+  else
+    echo "ORLON_RESULT failed"; return 1
+  fi
+}
+
+# ---- job mode ----------------------------------------------------------------------------------------
+if [ "$MODE" = job ]; then
+  echo $$ > "$PIDF"
+  do_build "$@"; rc=$?
+  echo "$rc" > "$DONE"; exit $rc
+fi
+
+# ---- foreground: start (or attach to) the job and follow it -------------------------------------------
+follow() { # $1 = max seconds to wait (0 = no limit); streams the log in UI mode, prints a summary in agent mode
+  start=$(date +%s); off=0
+  while :; do
+    if [ -n "$ORLON_UI" ] && [ -f "$LOG" ]; then
+      size=$(wc -c < "$LOG")
+      if [ "$size" -gt "$off" ]; then tail -c +$((off + 1)) "$LOG" | head -c $((size - off)); off=$size; fi
+    fi
+    if [ -f "$DONE" ]; then
+      if [ -n "$ORLON_UI" ]; then size=$(wc -c < "$LOG"); [ "$size" -gt "$off" ] && tail -c +$((off + 1)) "$LOG"; else summary; fi
+      return "$(cat "$DONE")"
+    fi
+    if ! job_running && [ ! -f "$DONE" ]; then echo "ORLON_ERROR the build process stopped unexpectedly" >&2; summary; echo "ORLON_RESULT failed"; return 5; fi
+    if [ "$1" -gt 0 ] && [ $(( $(date +%s) - start )) -ge "$1" ]; then
+      echo "ORLON_RUNNING the build is still going (first builds download the project's libraries and can take several minutes)."
+      echo "ORLON_NEXT run: orlon-build --wait -C $root     (waits up to $1 s more; repeat until you see ORLON_RESULT)"
+      summary | grep -E '^ORLON_STEP|^ORLON_NOTE' | tail -3
+      return 0
+    fi
+    sleep 1
+  done
+}
+
+if [ -n "$ORLON_UI" ]; then MAXWAIT=0; else MAXWAIT="${ORLON_MAXWAIT:-90}"; fi
+
+case "$MODE" in
+  status)
+    if job_running; then echo "ORLON_RUNNING a build is in progress"; summary | grep -E '^ORLON_STEP|^ORLON_NOTE' | tail -3
+    elif [ -f "$DONE" ]; then summary; else echo "ORLON_RESULT none (no build has been run for $root)"; fi
+    exit 0 ;;
+  wait)
+    if job_running; then follow "$MAXWAIT"; exit $?
+    elif [ -f "$DONE" ]; then summary; exit "$(cat "$DONE")"
+    else fail "no build is running for $root"; fi ;;
+esac
+
+# MODE=run: reuse a running job instead of starting a second Gradle
+if job_running; then echo "ORLON_NOTE a build is already running for this project; attaching to it"; follow "$MAXWAIT"; exit $?; fi
+other=$(ls /root/projects/*/.orlon/job.pid /root/projects/*/*/.orlon/job.pid 2>/dev/null | while read -r f; do
+  dd=$(dirname "$f"); [ "$dd" != "$JD" ] && [ ! -f "$dd/job.done" ] && kill -0 "$(cat "$f" 2>/dev/null)" 2>/dev/null && echo "$dd" && break; done)
+[ -z "$other" ] || fail "another build is running (${other%/.orlon}); wait for it first (orlon-build --wait -C ${other%/.orlon})" 6
+
+rm -f "$DONE" "$PIDF"; : > "$LOG"
+setsid nohup /usr/local/bin/orlon-build --job -C "$root" "$@" > "$LOG" 2>&1 < /dev/null &
+sleep 1
+follow "$MAXWAIT"
+exit $?

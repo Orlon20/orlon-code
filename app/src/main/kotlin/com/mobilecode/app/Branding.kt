@@ -228,4 +228,41 @@ object Branding {
 })();
 """
     }
+
+    /**
+     * Makes APK paths in the chat tappable (on-device mode). It never edits the page's text: taps are caught and the path under
+     * the finger is read from the text node, and whole-path code spans just get a link look. The app then validates the path.
+     */
+    const val APK_LINKS_JS = """
+(function(){
+  try {
+    if (window.__mcApkLinks) return; window.__mcApkLinks = true;
+    var RE = /\/root\/projects\/[^\s`'"<>()]+?\/\.orlon\/out\/[^\s`'"<>()]+?\.apk/g;
+    var WHOLE = /^\/root\/projects\/[^\s`'"<>()]+?\/\.orlon\/out\/[^\s`'"<>()]+?\.apk$/;
+    var st = document.createElement('style');
+    st.textContent = '[data-mc-apk]{cursor:pointer;text-decoration:underline;text-underline-offset:3px;color:var(--v2-text-text-accent,#a2bcff)!important} [data-mc-apk]::before{content:"\\2B07  ";text-decoration:none;display:inline-block}';
+    document.head.appendChild(st);
+    function mark(){
+      try { document.querySelectorAll('code').forEach(function(c){ if (!c.hasAttribute('data-mc-apk') && WHOLE.test((c.textContent || '').trim())) c.setAttribute('data-mc-apk', c.textContent.trim()); }); } catch(e) {}
+    }
+    mark(); var pending = false;
+    new MutationObserver(function(){ if (pending) return; pending = true; setTimeout(function(){ pending = false; mark(); }, 300); })
+      .observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+    document.addEventListener('click', function(e){
+      try {
+        var path = null, el = e.target && e.target.closest ? e.target.closest('[data-mc-apk]') : null;
+        if (el) path = el.getAttribute('data-mc-apk');
+        if (!path && document.caretRangeFromPoint) {
+          var r = document.caretRangeFromPoint(e.clientX, e.clientY);
+          if (r && r.startContainer.nodeType === 3) {
+            var txt = r.startContainer.nodeValue, off = r.startOffset, m; RE.lastIndex = 0;
+            while ((m = RE.exec(txt))) { if (off >= m.index && off <= m.index + m[0].length) { path = m[0]; break; } }
+          }
+        }
+        if (path && window.MobilecodeBridge && MobilecodeBridge.installApk) { e.preventDefault(); e.stopPropagation(); MobilecodeBridge.installApk(path); }
+      } catch(err) {}
+    }, true);
+  } catch(e) {}
+})();
+"""
 }

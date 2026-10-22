@@ -1,0 +1,25 @@
+#!/bin/sh
+# orlon-new-android <AppName> [com.example.package]   -> creates /root/projects/<AppName>, ready for: orlon-build -C /root/projects/<AppName>
+. /usr/local/bin/orlon-env
+T=/usr/local/share/orlon/android-template
+NAME="$1"; PKG="$2"
+fail() { echo "ORLON_ERROR $*" >&2; exit 2; }
+[ -n "$NAME" ] || fail "usage: orlon-new-android <AppName> [com.example.package]"
+echo "$NAME" | grep -Eq '^[A-Za-z][A-Za-z0-9._-]{0,40}$' || fail "the app name must start with a letter and use only letters, digits, . _ - (no spaces)"
+if [ -z "$PKG" ]; then PKG="com.example.$(echo "$NAME" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9')"; fi
+echo "$PKG" | grep -Eq '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$' || fail "the package must look like com.example.myapp (lowercase)"
+[ -d "$T" ] || fail "the Android template is missing; restart Orlon Code"
+D=/root/projects/$NAME
+[ ! -e "$D" ] || fail "$D already exists (pick another name, or edit that project and run orlon-build)"
+mkdir -p /root/projects && cp -r "$T" "$D" || fail "could not create the project"
+PKGPATH=$(echo "$PKG" | tr . /)
+mkdir -p "$D/app/src/main/kotlin/$PKGPATH"
+mv "$D/app/src/main/kotlin/PKGPATH"/* "$D/app/src/main/kotlin/$PKGPATH/" && rmdir "$D/app/src/main/kotlin/PKGPATH"
+find "$D" -type f \( -name '*.kt' -o -name '*.kts' -o -name '*.xml' -o -name '*.md' -o -name '*.properties' \) | while read -r f; do
+  sed -i "s|__APP_NAME__|$NAME|g; s|__PACKAGE__|$PKG|g" "$f"
+done
+[ -f "$D/gitignore.template" ] && mv "$D/gitignore.template" "$D/.gitignore"
+chmod +x "$D/gradlew"
+(cd "$D" && git init -q 2>/dev/null && git add -A >/dev/null 2>&1 && git commit -q -m "New Android app" >/dev/null 2>&1) || true
+echo "ORLON_PROJECT $D"
+echo "Created $NAME ($PKG). Edit app/src/main/kotlin/$PKGPATH/MainActivity.kt and app/src/main/res/, then run: orlon-build -C $D"

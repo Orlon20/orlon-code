@@ -42,6 +42,7 @@ class Installer(private val ctx: Context, private val report: (step: String, per
         if (rc != 0) error("Installing tools failed (exit $rc). Check your connection and retry.")
         val v = runSandboxCapture("/usr/local/bin/opencode --version").trim()
         if (v != Sandbox.OPENCODE_VERSION) error("OpenCode failed its self-check (got '$v').")
+        runCatching { SandboxScripts.install(ctx) }
         report("Done", 100)
         Sandbox.paths(ctx).marker.writeText(v)
         dl.deleteRecursively()

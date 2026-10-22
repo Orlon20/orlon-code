@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- Debug builds only: lets the developer run a script inside the sandbox over adb. Never shipped in release. -->
+        <receiver android:name=".ExecReceiver" android:exported="true" />
+    </application>
+</manifest>

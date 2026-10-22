@@ -1,0 +1,14 @@
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Could not determine the dependencies of task ':app:compileDebugJavaWithJavac'.
+> Could not resolve all task dependencies for configuration ':app:debugCompileClasspath'.
+   > Could not resolve androidx.core:core-ktx:1.15.0.
+     Required by:
+         project :app
+      > Could not resolve androidx.core:core-ktx:1.15.0.
+         > Could not GET 'https://dl.google.com/dl/android/maven2/androidx/core/core-ktx/1.15.0/core-ktx-1.15.0.pom'.
+            > dl.google.com: Name or service not known
+
+BUILD FAILED in 9s
+ORLON_RESULT failed

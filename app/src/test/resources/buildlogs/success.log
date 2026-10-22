@@ -1,0 +1,9 @@
+ORLON_STEP Building /root/projects/hello-android: assembleDebug
+> Task :app:assembleDebug
+
+BUILD SUCCESSFUL in 19s
+35 actionable tasks: 35 executed
+ORLON_APK /root/projects/hello-android/.orlon/out/app-debug.apk (signed)
+ORLON_APK /root/projects/hello-android/.orlon/out/app-release.apk (unsigned)
+ORLON_BUNDLE /root/projects/hello-android/.orlon/out/app-release.aab
+ORLON_RESULT success

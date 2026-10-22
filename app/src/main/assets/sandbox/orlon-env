@@ -1,0 +1,8 @@
+# Sourced by the Orlon Code build scripts. Plain POSIX sh (the sandbox is Alpine/busybox).
+export JAVA_HOME="$(ls -d /usr/lib/jvm/java-17-openjdk* 2>/dev/null | head -1)"
+export ANDROID_HOME=/opt/android-sdk ANDROID_SDK_ROOT=/opt/android-sdk
+export GRADLE_USER_HOME=/root/.gradle
+export ORLON_HOME=/root/.orlon
+export PATH="$JAVA_HOME/bin:/opt/android-sdk/cmdline-tools/latest/bin:$PATH"
+ORLON_TOOLCHAIN_VERSION=1
+ORLON_MARKER=/opt/android-sdk/.orlon-toolchain-v$ORLON_TOOLCHAIN_VERSION

@@ -87,3 +87,6 @@ fun Context.showMenu(anchor: View, items: List<Pair<Int, String>>, onPick: (Int)
     popup.setOnItemClickListener { _, _, pos, _ -> popup.dismiss(); onPick(items[pos].first) }
     popup.show()
 }
+
+/** A rounded surface with a hairline border, in the current theme. */
+fun Context.cardBg() = GradientDrawable().apply { setColor(Palette.CARD); cornerRadius = dp(12).toFloat(); setStroke(dp(1), Palette.BORDER) }

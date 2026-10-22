@@ -1,0 +1,104 @@
+#!/bin/sh
+# orlon-toolchain status|install|fixup|clean-cache
+. /usr/local/bin/orlon-env
+CMDTOOLS_URL=https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+CMDTOOLS_SHA=2d2d50857e4eb553af5a6dc3ad507a17adf43d115264b1afc116f95c92e5e258
+SDKTOOLS_URL=https://github.com/lzhiyong/android-sdk-tools/releases/download/35.0.2/android-sdk-tools-static-aarch64.zip
+SDKTOOLS_SHA=db1cea2c4454d5f9c5a802646b2d1cf560b4ee7badbe23e51ab8e1881bb50fc2
+PLATFORM="platforms;android-36"; BUILDTOOLS="build-tools;36.0.0"
+STEPS=7
+
+step() { echo "ORLON_STEP $1/$STEPS $2"; }
+fail() { echo "ORLON_ERROR $*" >&2; exit 1; }
+
+download() { # url sha out
+  wget -q -O "$3" "$1" || fail "download failed: $1"
+  got=$(sha256sum "$3" | cut -d' ' -f1)
+  [ "$got" = "$2" ] || { rm -f "$3"; fail "checksum mismatch for $1"; }
+}
+
+fixup() { # replace x86 build-tools binaries with native arm64 ones (aapt2, aapt, zipalign) in every installed build-tools dir
+  [ -d /opt/sdk-tools/build-tools ] || return 0
+  for d in /opt/android-sdk/build-tools/*/; do
+    [ -d "$d" ] || continue
+    for t in aapt2 aapt zipalign; do
+      if [ -f "/opt/sdk-tools/build-tools/$t" ]; then
+        if ! cmp -s "/opt/sdk-tools/build-tools/$t" "$d$t"; then cp -f "/opt/sdk-tools/build-tools/$t" "$d$t"; chmod +x "$d$t"; fi
+      fi
+    done
+  done
+  return 0
+}
+
+write_gradle_defaults() {
+  mkdir -p /root/.gradle "$ORLON_HOME"
+  MEMKB=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null); [ -n "$MEMKB" ] || MEMKB=4000000
+  XMX=$((MEMKB / 1024 / 4)); [ $XMX -lt 1024 ] && XMX=1024; [ $XMX -gt 3072 ] && XMX=3072
+  cat > /root/.gradle/gradle.properties <<EOF
+# Managed by Orlon Code (orlon-toolchain). Safe to edit; re-created by 'orlon-toolchain install'.
+android.aapt2FromMavenOverride=/opt/android-sdk/build-tools/36.0.0/aapt2
+org.gradle.jvmargs=-Xmx${XMX}m -XX:MaxMetaspaceSize=768m -Dfile.encoding=UTF-8
+kotlin.compiler.execution.strategy=in-process
+org.gradle.daemon=false
+org.gradle.vfs.watch=false
+systemProp.org.gradle.native=false
+org.gradle.parallel=true
+android.useAndroidX=true
+EOF
+}
+
+status() {
+  r=ready
+  if [ -x "$JAVA_HOME/bin/javac" ]; then echo "jdk=ok $("$JAVA_HOME/bin/java" -version 2>&1 | head -1)"; else echo "jdk=missing"; r=missing; fi
+  if [ -x /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager ]; then echo "cmdline-tools=ok"; else echo "cmdline-tools=missing"; r=missing; fi
+  if [ -f /opt/android-sdk/platforms/android-36/android.jar ]; then echo "platform-36=ok"; else echo "platform-36=missing"; r=missing; fi
+  if [ -f /opt/android-sdk/build-tools/36.0.0/lib/d8.jar ]; then echo "build-tools-36=ok"; else echo "build-tools-36=missing"; r=missing; fi
+  if /opt/android-sdk/build-tools/36.0.0/aapt2 version >/dev/null 2>&1; then echo "aapt2=ok arm64"; else echo "aapt2=missing-or-wrong-arch"; r=missing; fi
+  if /opt/android-sdk/build-tools/36.0.0/zipalign 2>&1 | grep -qi zipalign; then echo "zipalign=ok arm64"; else echo "zipalign=missing-or-wrong-arch"; r=missing; fi
+  [ -f "$ORLON_MARKER" ] || r=missing
+  FREE=$(df -k /root | awk 'NR==2{print int($4/1024)}'); echo "free-mb=$FREE"
+  echo "ORLON_TOOLCHAIN $r"; [ "$r" = ready ]
+}
+
+install() {
+  set -e
+  FREE=$(df -k /root | awk 'NR==2{print int($4/1024)}'); [ "${FREE:-0}" -gt 2500 ] || fail "not enough free storage (need about 2.5 GB, have ${FREE:-0} MB)"
+  step 1 "Installing Java (JDK 17)"
+  apk add --no-cache openjdk17-jdk unzip zip git ca-certificates >/dev/null || fail "could not install the JDK"
+  . /usr/local/bin/orlon-env
+  mkdir -p /opt/android-sdk/cmdline-tools /opt/sdk-tools /tmp/orlon-dl
+  step 2 "Downloading Android command-line tools"
+  if [ ! -x /opt/android-sdk/cmdline-tools/latest/bin/sdkmanager ]; then
+    download "$CMDTOOLS_URL" "$CMDTOOLS_SHA" /tmp/orlon-dl/cmd.zip
+    (cd /opt/android-sdk/cmdline-tools && rm -rf cmdline-tools latest && unzip -q -o /tmp/orlon-dl/cmd.zip && mv cmdline-tools latest)
+    rm -f /tmp/orlon-dl/cmd.zip
+  fi
+  step 3 "Accepting the Android SDK license"
+  yes 2>/dev/null | sdkmanager --sdk_root=/opt/android-sdk --licenses >/dev/null 2>&1 || true
+  step 4 "Installing Android platform 36 and build-tools 36"
+  sdkmanager --sdk_root=/opt/android-sdk "$PLATFORM" "$BUILDTOOLS" >/tmp/orlon-dl/sdk.log 2>&1 || { tail -5 /tmp/orlon-dl/sdk.log; fail "sdkmanager failed"; }
+  step 5 "Installing arm64 build tools (aapt2, zipalign)"
+  if [ ! -f /opt/sdk-tools/build-tools/aapt2 ]; then
+    download "$SDKTOOLS_URL" "$SDKTOOLS_SHA" /tmp/orlon-dl/tools.zip
+    (cd /opt/sdk-tools && unzip -q -o /tmp/orlon-dl/tools.zip)
+    chmod +x /opt/sdk-tools/build-tools/* 2>/dev/null || true
+    rm -f /tmp/orlon-dl/tools.zip
+  fi
+  fixup
+  step 6 "Writing Gradle defaults"
+  write_gradle_defaults
+  step 7 "Verifying"
+  rm -rf /tmp/orlon-dl
+  touch "$ORLON_MARKER"
+  set +e
+  status
+}
+
+case "$1" in
+  status) status ;;
+  install) install ;;
+  fixup) fixup ;;
+  defaults) write_gradle_defaults ;;
+  clean-cache) rm -rf /root/.gradle/caches /root/.gradle/daemon /root/.gradle/wrapper/dists; echo "Gradle caches removed." ;;
+  *) echo "usage: orlon-toolchain status|install|fixup|defaults|clean-cache"; exit 2 ;;
+esac

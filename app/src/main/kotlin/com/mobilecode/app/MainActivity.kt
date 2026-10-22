@@ -33,7 +33,7 @@ class MainActivity : AppCompatActivity() {
     private var starting = false
     private var pruneThenHome = false
     private lateinit var rootFrame: FrameLayout
-    private lateinit var menuBtn: TextView
+    private lateinit var menuBtn: android.widget.ImageView
     private lateinit var brandLabel: WordmarkView
     private lateinit var topBar: android.widget.LinearLayout
     private lateinit var rootColumn: android.widget.LinearLayout
@@ -47,11 +47,26 @@ class MainActivity : AppCompatActivity() {
     private var loadingVisible = false
     private var loadingShownAt = 0L
     private var awaitingReady = false
+    /** Text the Build screen asked us to put into the prompt box (e.g. build errors for the agent to fix). */
+    private var pendingDraft: String? = null
+    private lateinit var apkBanner: android.widget.LinearLayout
+    private lateinit var apkBannerText: TextView
+    private lateinit var apkBannerBtn: android.widget.Button
+    private var bannerApk: java.io.File? = null
+    private val apkPoll = object : Runnable { override fun run() { checkNewApk(); web.postDelayed(this, 2500) } }
 
     /** Page -> app calls (only these two; the app never exposes anything else to web content). */
     private inner class Bridge {
         @JavascriptInterface fun openThemes() { runOnUiThread { showThemes() } }
         @JavascriptInterface fun themesData(json: String) { runOnUiThread { onThemesData(json) } }
+        /** Tapped an APK path in the chat. Only a real .apk in a project's .orlon/out folder is ever installed, whatever the page asks for. */
+        @JavascriptInterface fun installApk(path: String) {
+            runOnUiThread {
+                val f = if (local) artifactFile(projectsHostRoot(), Sandbox.WORKSPACE, path) else null
+                if (f != null && f.name.endsWith(".apk")) ApkInstall.install(this@MainActivity, f)
+                else android.widget.Toast.makeText(this@MainActivity, "That APK isn't available any more. Ask the agent to build it again.", android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
     private val local get() = !prefs.remote
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
@@ -64,6 +79,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         applyThemeChrome()
+        pendingDraft = intent?.getStringExtra("draft")
         store = ServerStore(this)
         prefs = Prefs(this)
         if (local) {
@@ -93,7 +109,7 @@ class MainActivity : AppCompatActivity() {
                         v.evaluateJavascript(Branding.prepStateJs(if (local) Sandbox.WORKSPACE else null)) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); if (local) v.evaluateJavascript(Branding.APK_LINKS_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -127,9 +143,10 @@ class MainActivity : AppCompatActivity() {
             addView(retryBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(24) })
             addView(altBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         }
-        menuBtn = TextView(this).apply {
-            text = "⋮"; textSize = 20f; setTextColor(Palette.FG); gravity = Gravity.CENTER; alpha = 0.7f
-            setOnClickListener { showMenu(it) }
+        menuBtn = android.widget.ImageView(this).apply {
+            setImageResource(R.drawable.ic_settings); setColorFilter(Palette.FG); alpha = 0.75f
+            scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE; setPadding(dp(9), dp(9), dp(9), dp(9))
+            contentDescription = "Settings"; setOnClickListener { showMenu(it) }
         }
         brandLabel = wordmark(11, Palette.FG, 0.7f)
         // A real bar above the web page (not an overlay), so the menu can never sit on top of OpenCode's tab bar or dialogs.
@@ -149,10 +166,20 @@ class MainActivity : AppCompatActivity() {
                 addView(loadingMark); addView(loadingCaption)
             }, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         }
+        apkBannerText = label("", 14f, bold = true).apply { maxLines = 2 }
+        apkBannerBtn = primaryButton("Install") { bannerApk?.let { ApkInstall.install(this, it) }; hideApkBanner() }
+        apkBanner = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = cardBg(); elevation = dp(6).toFloat()
+            setPadding(dp(14), dp(10), dp(8), dp(10)); visibility = android.view.View.GONE
+            addView(apkBannerText, android.widget.LinearLayout.LayoutParams(0, -2, 1f))
+            addView(apkBannerBtn, android.widget.LinearLayout.LayoutParams(dp(92), dp(40)).apply { marginStart = dp(8) })
+            addView(label("✕", 18f, Palette.MUTED).apply { setPadding(dp(12), dp(6), dp(8), dp(6)); setOnClickListener { hideApkBanner() } })
+        }
         rootFrame = FrameLayout(this).apply {
             addView(web, ViewGroup.LayoutParams(-1, -1))
             addView(errorView, ViewGroup.LayoutParams(-1, -1))
             addView(loadingView, ViewGroup.LayoutParams(-1, -1))
+            addView(apkBanner, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM).apply { setMargins(dp(12), 0, dp(12), dp(12)) })
         }
         rootColumn = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; setBackgroundColor(Palette.BG); applySystemInsets()
@@ -245,6 +272,8 @@ class MainActivity : AppCompatActivity() {
     private val MIN_LOADING_MS = 1600L
 
     /** Branded loading screen that covers every intermediate page load until the prompt screen is really ready. */
+    companion object { @Volatile var visible = false }
+
     private fun showLoading(caption: String) {
         loadingCaption.text = caption
         if (loadingVisible) return
@@ -282,7 +311,7 @@ class MainActivity : AppCompatActivity() {
             "if(!labels.length)return 'no';return labels.some(function(t){return /Select model/i.test(t)})?'model':'ok'})()"
         web.evaluateJavascript(js) { r ->
             val ready = r == "\"ok\"" || (r == "\"model\"" && attempt > 40) || attempt > 66
-            if (ready) { awaitingReady = false; hideLoading() }
+            if (ready) { awaitingReady = false; injectDraft(); hideLoading() }
             else web.postDelayed({ awaitingReady = false; awaitPromptThenHide(attempt + 1) }, 150)
         }
     }
@@ -297,7 +326,7 @@ class MainActivity : AppCompatActivity() {
     private fun showMenu(anchor: android.view.View) {
         val items = mutableListOf<Pair<Int, String>>()
         items += 1 to (if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
-        if (local) items += 8 to "Preview what was built"
+        if (local) { items += 8 to "Preview what was built"; items += 10 to "Build Android app" }
         items += 9 to "Themes"
         items += 2 to "Reload"
         if (local) { items += 6 to "Restart agent"; items += 3 to "Connect to a PC instead" }
@@ -313,6 +342,7 @@ class MainActivity : AppCompatActivity() {
                 6 -> restartLocal()
                 7 -> { prefs.remote = false; recreate() }
                 8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
+                10 -> startActivity(Intent(this@MainActivity, BuildActivity::class.java))
                 9 -> showThemes()
             }
         }
@@ -359,15 +389,58 @@ class MainActivity : AppCompatActivity() {
         applyThemeChrome()
         loadingView.setBackgroundColor(Palette.BG); loadingMark.color = Palette.FG; loadingCaption.setTextColor(Palette.FAINT); loadingMark.invalidate()
         rootColumn.setBackgroundColor(Palette.BG); rootFrame.setBackgroundColor(Palette.BG); brandLabel.color = Palette.FG; brandLabel.invalidate(); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
-        errorText.setTextColor(Palette.FG); errTitle.color = Palette.FG; errTitle.invalidate(); menuBtn.setTextColor(Palette.FG)
+        errorText.setTextColor(Palette.FG); errTitle.color = Palette.FG; errTitle.invalidate(); menuBtn.setColorFilter(Palette.FG)
         retryBtn.stylePrimary(); altBtn.styleGhost()
         themeDialog?.restyle()
     }
 
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent) }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra("draft")?.let { pendingDraft = it; if (::web.isInitialized && local && !starting) { showLoading("Opening the agent…"); loadHome() } }
+    }
+
+    /** Types [pendingDraft] into the prompt box (once). The user still has to press send. */
+    private fun injectDraft() {
+        val text = pendingDraft ?: return
+        pendingDraft = null
+        val js = "(function(t){var f='form[class*=\"prompt-input\"]';var ed=document.querySelector(f+' [contenteditable=\"true\"], '+f+' textarea');if(!ed)return false;ed.focus();" +
+            "if(ed.value!==undefined){var s=Object.getOwnPropertyDescriptor(Object.getPrototypeOf(ed),'value').set;s.call(ed,t);ed.dispatchEvent(new Event('input',{bubbles:true}));}" +
+            "else{document.execCommand('selectAll');document.execCommand('insertText',false,t);}return true})(" + org.json.JSONObject.quote(text) + ")"
+        web.evaluateJavascript(js, null)
+    }
+
+    override fun onStart() { super.onStart(); visible = true }
+    override fun onStop() { visible = false; super.onStop() }
+
+    /** A build just produced an APK: offer to install it right here (the service posts a notification when we're not on screen). */
+    private fun checkNewApk() {
+        if (!local) return
+        thread {
+            val root = projectsHostRoot()
+            if (prefs.lastApkSeen == 0L) { prefs.lastApkSeen = System.currentTimeMillis(); return@thread }
+            val f = newestNewApk(root, prefs.lastApkSeen) ?: return@thread
+            val size = f.length(); Thread.sleep(700)
+            if (f.length() != size) return@thread
+            prefs.lastApkSeen = f.lastModified()
+            runOnUiThread { showApkBanner(f) }
+        }
+    }
+
+    private fun projectsHostRoot() = java.io.File(Sandbox.paths(this).rootfs + Sandbox.WORKSPACE)
+
+    private fun showApkBanner(f: java.io.File) {
+        bannerApk = f; apkBannerText.text = "✓ Your app is ready\n${apkTitle(f)}"
+        apkBanner.alpha = 0f; apkBanner.visibility = android.view.View.VISIBLE; apkBanner.animate().alpha(1f).setDuration(200).start()
+        apkBanner.removeCallbacks(hideBanner); apkBanner.postDelayed(hideBanner, 30_000)
+    }
+    private val hideBanner = Runnable { hideApkBanner() }
+    private fun hideApkBanner() { apkBanner.animate().alpha(0f).setDuration(150).withEndAction { apkBanner.visibility = android.view.View.GONE }.start() }
+
+    override fun onPause() { if (::web.isInitialized) web.removeCallbacks(apkPoll); super.onPause() }
 
     override fun onResume() {
         super.onResume()
+        if (::web.isInitialized && local) { web.removeCallbacks(apkPoll); web.postDelayed(apkPoll, 1500) }
         if (local) {
             if (!starting && !failed && ::web.isInitialized) thread { if (checkServer(prefs.localServer()) != CheckResult.OK) runOnUiThread { startLocal() } }
             return

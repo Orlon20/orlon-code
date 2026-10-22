@@ -1,0 +1,8 @@
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:dexBuilderDebug'.
+> java.lang.OutOfMemoryError: Java heap space
+
+BUILD FAILED in 1m 3s
+ORLON_RESULT failed

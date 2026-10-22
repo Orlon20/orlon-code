@@ -34,6 +34,16 @@ class Prefs(ctx: Context) {
         get() = if (sp.getString("themesVer", "") == Sandbox.OPENCODE_VERSION) sp.getString("themes", "") ?: "" else ""
         set(v) { sp.edit().putString("themes", v).putString("themesVer", Sandbox.OPENCODE_VERSION).apply() }
 
+    /** Time (ms) of the newest APK we have already announced, so each build is announced once. */
+    var lastApkSeen: Long
+        get() = sp.getLong("lastApkSeen", 0L)
+        set(v) { sp.edit().putLong("lastApkSeen", v).apply() }
+
+    /** The Gradle project last selected on the Build screen (sandbox path). */
+    var buildProject: String
+        get() = sp.getString("buildProject", "") ?: ""
+        set(v) { sp.edit().putString("buildProject", v).apply() }
+
     /** If something else holds our port (and our own server isn't the one running), pick a new free port. */
     fun rotatePortIfBusy() {
         val port = localPort

@@ -1,0 +1,23 @@
+// Orlon Code init script: applied to every build via `-I`. It never edits the user's project files.
+// 1) Sign release builds with the on-device key when the project defines no signing config.
+// 2) Skip the slow lintVital release checks (not needed to produce an APK on a phone).
+def ks = System.getenv('ORLON_KEYSTORE')
+allprojects { p ->
+    p.afterEvaluate {
+        def android = p.extensions.findByName('android')
+        if (ks && android != null && p.plugins.hasPlugin('com.android.application')) {
+            def release = android.buildTypes.findByName('release')
+            if (release != null && release.signingConfig == null) {
+                def cfg = android.signingConfigs.maybeCreate('orlon')
+                cfg.storeFile = new File(ks)
+                cfg.storePassword = System.getenv('ORLON_KEYSTORE_PASSWORD')
+                cfg.keyAlias = System.getenv('ORLON_KEY_ALIAS')
+                cfg.keyPassword = System.getenv('ORLON_KEY_PASSWORD')
+                release.signingConfig = cfg
+            }
+        }
+    }
+}
+gradle.taskGraph.whenReady { graph ->
+    graph.allTasks.each { t -> if (t.name.startsWith('lintVital')) t.enabled = false }
+}
