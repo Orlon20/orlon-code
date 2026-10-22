@@ -22,7 +22,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errorView: android.widget.LinearLayout
     private lateinit var errorText: TextView
     private var server: Server? = null
-    private var keepAwake = false
     private var fileCb: ValueCallback<Array<Uri>>? = null
     private var failed = false
     private lateinit var prefs: Prefs
@@ -50,7 +49,15 @@ class MainActivity : AppCompatActivity() {
     private lateinit var apkBannerText: TextView
     private lateinit var apkBannerBtn: android.widget.Button
     private var bannerApk: java.io.File? = null
-    private val apkPoll = object : Runnable { override fun run() { checkNewApk(); web.postDelayed(this, 2500) } }
+    private val apkPoll = object : Runnable { override fun run() { checkNewApk(); checkBusy(); web.postDelayed(this, 2500) } }
+
+    /** The screen stays on exactly while the agent is working, so long builds are not interrupted by the screen timing out. */
+    private fun checkBusy() {
+        thread {
+            val busy = fetchAgentBusy(prefs.localServer())
+            runOnUiThread { if (busy) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
+    }
 
     /** Page -> app calls (only these two; the app never exposes anything else to web content). */
     private inner class Bridge {
@@ -295,7 +302,6 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMenu(anchor: android.view.View) {
         val items = listOf(
-            1 to (if (keepAwake) "Keep screen awake ✓" else "Keep screen awake"),
             8 to "Preview what was built",
             9 to "Themes",
             2 to "Reload",
@@ -304,7 +310,6 @@ class MainActivity : AppCompatActivity() {
         )
         showMenu(anchor, items) { id ->
             when (id) {
-                1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
                 2 -> loadHome()
                 5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
                 6 -> restartLocal()

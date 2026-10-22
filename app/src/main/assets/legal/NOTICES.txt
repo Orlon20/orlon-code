@@ -1,0 +1,21 @@
+Orlon Code is open source under the MIT License.
+
+It runs the OpenCode coding agent (MIT License, https://opencode.ai). Orlon Code is an independent project and is not affiliated with OpenCode.
+
+BUNDLED IN THE APP
+- proot and its loader 5.1.107.98 (GPL-2.0-or-later). Unmodified Termux build. Source: https://github.com/proot-me/proot and https://github.com/termux/termux-packages/tree/master/packages/proot
+- libtalloc 2.5.0 (LGPL-3.0-or-later). Unmodified Termux build. Source: https://download.samba.org/pub/talloc/
+- libandroid-shmem 0.7 (BSD-3-Clause). Source: https://github.com/termux/libandroid-shmem
+- Gradle wrapper 8.14.3 (Apache-2.0). Material icons (Apache-2.0).
+- Kotlin standard library and AndroidX (Apache-2.0).
+
+The GPL and LGPL components are separate programs/libraries inside the app and can be replaced by rebuilding the app with your own copies.
+
+DOWNLOADED ON YOUR PHONE WHEN YOU USE THE APP (each verified by checksum)
+- OpenCode 1.19.3 (MIT)
+- Alpine Linux 3.24 and its packages, including OpenJDK 17 (various licenses)
+- Android command-line tools, platform 36 and build-tools 36 (Android Software Development Kit License, accepted when the build tools are installed)
+- Static arm64 aapt2 and zipalign 35.0.2 (Apache-2.0), https://github.com/lzhiyong/android-sdk-tools
+- Gradle and the libraries of the projects you build (Apache-2.0 and others)
+
+Full license texts and source links are in the project's THIRD_PARTY_NOTICES.md and licenses folder.

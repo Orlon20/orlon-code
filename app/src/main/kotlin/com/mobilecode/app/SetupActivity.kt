@@ -47,9 +47,9 @@ class SetupActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         applyThemeChrome()
 
-        val tagline = label("Vibecode on your phone.", 17f, bold = true).apply { gravity = Gravity.CENTER }
+        val tagline = label("Vibecode on your phone.", 14f, Palette.MUTED).apply { gravity = Gravity.CENTER }
 
-        go = primaryButton("Set up Orlon Code") { start() }
+        go = primaryButton("Get Started") { start() }
 
         step = label("", 14f).apply { gravity = Gravity.CENTER }
         percent = label("0%", 28f, bold = true).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(14)) }
@@ -71,14 +71,14 @@ class SetupActivity : AppCompatActivity() {
 
         val column = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            addView(wordmark(30).apply { }, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(26) })
+            addView(wordmark(30), LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(24) })
             addView(tagline, LinearLayout.LayoutParams(-1, -2))
-            addView(go, LinearLayout.LayoutParams(-1, dp(54)).apply { topMargin = dp(32) })
+            addView(go, LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(36) })
             addView(progressGroup, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
             addView(detailsToggle, LinearLayout.LayoutParams(-2, -2))
             addView(detailsBox, LinearLayout.LayoutParams(-1, dp(150)))
         }
-        val footer = label("Powered by OpenCode (MIT)", 11f, Palette.FAINT).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(16)) }
+        val footer = label("Powered by OpenCode", 11f, Palette.FAINT).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(16)) }
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(Palette.BG); setPadding(dp(28), 0, dp(28), 0); applySystemInsets()
             addView(column, FrameLayout.LayoutParams(-1, -2, Gravity.CENTER))
