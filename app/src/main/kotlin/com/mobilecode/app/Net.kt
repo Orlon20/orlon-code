@@ -4,6 +4,8 @@ import android.util.Base64
 import java.net.HttpURLConnection
 import java.net.URL
 
+data class Server(val url: String, val password: String)
+
 const val AUTH_USER = "opencode"
 
 fun basicAuth(password: String) =

@@ -79,7 +79,7 @@ class LocalServerService : Service() {
         val nm = getSystemService(NotificationManager::class.java)
         nm.createNotificationChannel(NotificationChannel("builds", "App ready to install", NotificationManager.IMPORTANCE_HIGH))
         val path = Sandbox.WORKSPACE + "/" + f.relativeTo(root).path
-        val tap = PendingIntent.getActivity(this, f.hashCode(), Intent(this, BuildActivity::class.java).putExtra("install_path", path), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        val tap = PendingIntent.getActivity(this, f.hashCode(), Intent(this, MainActivity::class.java).putExtra("install_path", path).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         nm.notify(2, NotificationCompat.Builder(this, "builds").setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setContentTitle("Your app is ready").setContentText("${apkTitle(f)} — tap to install").setContentIntent(tap).setAutoCancel(true).build())
     }

@@ -1,4 +1,0 @@
-* What went wrong:
-Could not determine the dependencies of task ':app:compileDebugJavaWithJavac'.
-> Failed to install the following Android SDK packages as some licences have not been accepted.
-     platforms;android-34 Android SDK Platform 34

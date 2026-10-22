@@ -50,13 +50,6 @@ fun Context.ghostButton(text: String, onClick: () -> Unit) = Button(this).apply 
     styleGhost(); setOnClickListener { onClick() }
 }
 
-fun Context.field(hint: String, password: Boolean = false) = EditText(this).apply {
-    this.hint = hint; setHintTextColor(Palette.FAINT); setTextColor(Palette.FG); typeface = Typeface.SANS_SERIF; textSize = 14f
-    setSingleLine(); setPadding(dp(14), dp(12), dp(14), dp(12))
-    background = box(Palette.CARD, Palette.BORDER)
-    inputType = if (password) 129 else 17 // textPassword / textUri
-}
-
 fun View.applySystemInsets() {
     val l = paddingLeft; val t = paddingTop; val r = paddingRight; val b = paddingBottom
     ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->

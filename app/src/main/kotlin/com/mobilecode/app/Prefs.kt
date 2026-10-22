@@ -8,10 +8,6 @@ import java.security.SecureRandom
 class Prefs(ctx: Context) {
     private val sp = ctx.getSharedPreferences("mobilecode", Context.MODE_PRIVATE)
 
-    var remote: Boolean
-        get() = sp.getBoolean("remote", false)
-        set(v) { sp.edit().putBoolean("remote", v).apply() }
-
     val localPassword: String get() = sp.getString("lpw", null) ?: ByteArray(16).also { SecureRandom().nextBytes(it) }
         .joinToString("") { "%02x".format(it) }.also { sp.edit().putString("lpw", it).apply() }
 
@@ -38,11 +34,6 @@ class Prefs(ctx: Context) {
     var lastApkSeen: Long
         get() = sp.getLong("lastApkSeen", 0L)
         set(v) { sp.edit().putLong("lastApkSeen", v).apply() }
-
-    /** The Gradle project last selected on the Build screen (sandbox path). */
-    var buildProject: String
-        get() = sp.getString("buildProject", "") ?: ""
-        set(v) { sp.edit().putString("buildProject", v).apply() }
 
     /** If something else holds our port (and our own server isn't the one running), pick a new free port. */
     fun rotatePortIfBusy() {

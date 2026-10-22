@@ -18,9 +18,7 @@ import androidx.appcompat.app.AppCompatActivity
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
-    private lateinit var store: ServerStore
     private lateinit var web: WebView
-    private val refresh = object { var isRefreshing = false }
     private lateinit var errorView: android.widget.LinearLayout
     private lateinit var errorText: TextView
     private var server: Server? = null
@@ -29,7 +27,6 @@ class MainActivity : AppCompatActivity() {
     private var failed = false
     private lateinit var prefs: Prefs
     private lateinit var retryBtn: android.widget.Button
-    private lateinit var altBtn: android.widget.Button
     private var starting = false
     private var pruneThenHome = false
     private lateinit var rootFrame: FrameLayout
@@ -47,7 +44,7 @@ class MainActivity : AppCompatActivity() {
     private var loadingVisible = false
     private var loadingShownAt = 0L
     private var awaitingReady = false
-    /** Text the Build screen asked us to put into the prompt box (e.g. build errors for the agent to fix). */
+    /** Text handed over from another screen to type into the prompt box (the user still presses send). */
     private var pendingDraft: String? = null
     private lateinit var apkBanner: android.widget.LinearLayout
     private lateinit var apkBannerText: TextView
@@ -62,13 +59,12 @@ class MainActivity : AppCompatActivity() {
         /** Tapped an APK path in the chat. Only a real .apk in a project's .orlon/out folder is ever installed, whatever the page asks for. */
         @JavascriptInterface fun installApk(path: String) {
             runOnUiThread {
-                val f = if (local) artifactFile(projectsHostRoot(), Sandbox.WORKSPACE, path) else null
+                val f = artifactFile(projectsHostRoot(), Sandbox.WORKSPACE, path)
                 if (f != null && f.name.endsWith(".apk")) ApkInstall.install(this@MainActivity, f)
                 else android.widget.Toast.makeText(this@MainActivity, "That APK isn't available any more. Ask the agent to build it again.", android.widget.Toast.LENGTH_LONG).show()
             }
         }
     }
-    private val local get() = !prefs.remote
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
     private val picker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
@@ -80,17 +76,12 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         applyThemeChrome()
         pendingDraft = intent?.getStringExtra("draft")
-        store = ServerStore(this)
+        window.decorView.post { handleInstallIntent(intent) }
         prefs = Prefs(this)
-        if (local) {
-            if (!Sandbox.isInstalled(Sandbox.paths(this))) { startActivity(Intent(this, SetupActivity::class.java)); finish(); return }
-            server = prefs.localServer()
-            if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
-                notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-        } else {
-            server = store.active()
-            if (server == null) { startActivity(Intent(this, ConnectActivity::class.java)); finish(); return }
-        }
+        if (!Sandbox.isInstalled(Sandbox.paths(this))) { startActivity(Intent(this, SetupActivity::class.java)); finish(); return }
+        server = prefs.localServer()
+        if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+            notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
 
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
@@ -103,13 +94,12 @@ class MainActivity : AppCompatActivity() {
                     h.proceed(AUTH_USER, server!!.password)
                 }
                 override fun onPageFinished(v: WebView, url: String?) {
-                    refresh.isRefreshing = false
                     if (pruneThenHome) {
                         pruneThenHome = false
-                        v.evaluateJavascript(Branding.prepStateJs(if (local) Sandbox.WORKSPACE else null)) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
+                        v.evaluateJavascript(Branding.prepStateJs(Sandbox.WORKSPACE)) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); if (local) v.evaluateJavascript(Branding.APK_LINKS_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.evaluateJavascript(Branding.APK_LINKS_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -138,10 +128,8 @@ class MainActivity : AppCompatActivity() {
             errTitle = wordmark(18).apply { setPadding(0, 0, 0, dp(16)) }
             addView(errTitle)
             addView(errorText)
-            retryBtn = primaryButton("Retry") { if (local) restartLocal() else load() }
-            altBtn = ghostButton(if (local) "Connect to a PC instead" else "Rescan / change server") { startActivity(Intent(this@MainActivity, ConnectActivity::class.java)) }
+            retryBtn = primaryButton("Retry") { restartLocal() }
             addView(retryBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(24) })
-            addView(altBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         }
         menuBtn = android.widget.ImageView(this).apply {
             setImageResource(R.drawable.ic_settings); setColorFilter(Palette.FG); alpha = 0.75f
@@ -191,13 +179,13 @@ class MainActivity : AppCompatActivity() {
             override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() } }
         })
         (getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager).registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(n: Network) { if (failed) runOnUiThread { load() } }
+            override fun onAvailable(n: Network) { if (failed) runOnUiThread { startLocal() } }
         })
-        load()
+        startLocal()
     }
 
-    private fun unreachableMsg() = if (local) "Your agent isn't responding.\nTap Retry to restart it." else "Server unreachable.\nCheck it is running, or rescan the code."
-    private fun wrongPasswordMsg() = if (local) "Your agent restarted with new credentials.\nTap Retry." else "Wrong password or the session changed.\nRescan the code."
+    private fun unreachableMsg() = "Your agent isn't responding.\nTap Retry to restart it."
+    private fun wrongPasswordMsg() = "Your agent restarted with new credentials.\nTap Retry."
 
     /** Start the on-device server (if needed), wait for it to answer, then load the UI. */
     private fun startLocal() {
@@ -246,23 +234,6 @@ class MainActivity : AppCompatActivity() {
     private fun restartLocal() {
         LocalServerService.stop(this)
         thread { Thread.sleep(1500); runOnUiThread { startLocal() } }
-    }
-
-    private fun load() {
-        if (local) { startLocal(); return }
-        val s = server ?: return
-        failed = false; errorView.visibility = android.view.View.GONE; showLoading("Connecting…")
-        // Pre-check so 401 / unreachable get distinct messages even when the WebView hides them.
-        thread {
-            val res = checkServer(s)
-            runOnUiThread {
-                when (res) {
-                    CheckResult.OK -> web.loadUrl(s.url + "/", mapOf("Authorization" to basicAuth(s.password)))
-                    CheckResult.WRONG_PASSWORD -> showError(wrongPasswordMsg())
-                    CheckResult.UNREACHABLE -> showError(unreachableMsg())
-                }
-            }
-        }
     }
 
     private fun showError(msg: String) { failed = true; hideLoading(immediately = true); showMessage(msg, buttons = true) }
@@ -317,32 +288,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMessage(msg: String, buttons: Boolean) {
-        refresh.isRefreshing = false
         errorText.text = msg; errorView.visibility = android.view.View.VISIBLE
         val v = if (buttons) android.view.View.VISIBLE else android.view.View.GONE
-        retryBtn.visibility = v; altBtn.visibility = v
+        retryBtn.visibility = v
     }
 
     private fun showMenu(anchor: android.view.View) {
-        val items = mutableListOf<Pair<Int, String>>()
-        items += 1 to (if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
-        if (local) { items += 8 to "Preview what was built"; items += 10 to "Build Android app" }
-        items += 9 to "Themes"
-        items += 2 to "Reload"
-        if (local) { items += 6 to "Restart agent"; items += 3 to "Connect to a PC instead" }
-        else { items += 3 to "Switch / add server"; items += 4 to "Forget this server"; items += 7 to "Use on-device agent" }
-        items += 5 to "About"
+        val items = listOf(
+            1 to (if (keepAwake) "Keep screen awake ✓" else "Keep screen awake"),
+            8 to "Preview what was built",
+            9 to "Themes",
+            2 to "Reload",
+            6 to "Restart agent",
+            5 to "About",
+        )
         showMenu(anchor, items) { id ->
             when (id) {
                 1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-                2 -> if (local) loadHome() else load()
-                3 -> startActivity(Intent(this@MainActivity, ConnectActivity::class.java))
-                4 -> { store.forget(server!!.url); startActivity(Intent(this@MainActivity, ConnectActivity::class.java)); finish() }
+                2 -> loadHome()
                 5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
                 6 -> restartLocal()
-                7 -> { prefs.remote = false; recreate() }
                 8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
-                10 -> startActivity(Intent(this@MainActivity, BuildActivity::class.java))
                 9 -> showThemes()
             }
         }
@@ -390,13 +356,22 @@ class MainActivity : AppCompatActivity() {
         loadingView.setBackgroundColor(Palette.BG); loadingMark.color = Palette.FG; loadingCaption.setTextColor(Palette.FAINT); loadingMark.invalidate()
         rootColumn.setBackgroundColor(Palette.BG); rootFrame.setBackgroundColor(Palette.BG); brandLabel.color = Palette.FG; brandLabel.invalidate(); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
         errorText.setTextColor(Palette.FG); errTitle.color = Palette.FG; errTitle.invalidate(); menuBtn.setColorFilter(Palette.FG)
-        retryBtn.stylePrimary(); altBtn.styleGhost()
+        retryBtn.stylePrimary()
         themeDialog?.restyle()
+    }
+
+    /** From the "Your app is ready" notification: go straight to Android's install prompt. */
+    private fun handleInstallIntent(i: Intent?) {
+        val path = i?.getStringExtra("install_path") ?: return
+        i.removeExtra("install_path")
+        val f = artifactFile(projectsHostRoot(), Sandbox.WORKSPACE, path)
+        if (f != null && f.name.endsWith(".apk")) ApkInstall.install(this, f)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.getStringExtra("draft")?.let { pendingDraft = it; if (::web.isInitialized && local && !starting) { showLoading("Opening the agent…"); loadHome() } }
+        handleInstallIntent(intent)
+        intent.getStringExtra("draft")?.let { pendingDraft = it; if (::web.isInitialized && !starting) { showLoading("Opening the agent…"); loadHome() } }
     }
 
     /** Types [pendingDraft] into the prompt box (once). The user still has to press send. */
@@ -414,7 +389,6 @@ class MainActivity : AppCompatActivity() {
 
     /** A build just produced an APK: offer to install it right here (the service posts a notification when we're not on screen). */
     private fun checkNewApk() {
-        if (!local) return
         thread {
             val root = projectsHostRoot()
             if (prefs.lastApkSeen == 0L) { prefs.lastApkSeen = System.currentTimeMillis(); return@thread }
@@ -440,12 +414,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (::web.isInitialized && local) { web.removeCallbacks(apkPoll); web.postDelayed(apkPoll, 1500) }
-        if (local) {
-            if (!starting && !failed && ::web.isInitialized) thread { if (checkServer(prefs.localServer()) != CheckResult.OK) runOnUiThread { startLocal() } }
-            return
-        }
-        val a = store.active()
-        if (a != null && a != server) { server = a; load() } else if (failed) load()
+        if (!::web.isInitialized) return
+        web.removeCallbacks(apkPoll); web.postDelayed(apkPoll, 1500)
+        // If the agent was stopped while we were away, bring it back.
+        if (!starting && !failed) thread { if (checkServer(prefs.localServer()) != CheckResult.OK) runOnUiThread { startLocal() } }
     }
 }

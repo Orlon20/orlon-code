@@ -15,7 +15,7 @@ Do all of this without asking for permission or confirmation:
 - It runs as a background job. If it prints `ORLON_RUNNING`, the build is still going: run `orlon-build --wait -C /root/projects/<Name>` again (repeat until you see `ORLON_RESULT`). Never start a second build while one is running. `orlon-build --status -C <dir>` shows the state.
 - Never run `./gradlew` directly, never edit `local.properties`, never install other JDKs/SDKs, never use `--daemon`. The sandbox has JDK 17 and Android SDK 36 only.
 - The first build of a project downloads its libraries (minutes); later builds take well under a minute.
-- Open projects: `orlon-project clone <https-url> <name>` clones a public repository; ZIPs are imported by the user from the Build screen.
+- To work on an existing public repository: `orlon-project clone <https-url> <name>`.
 - If the build fails for environment reasons (no internet, out of memory, out of storage) say so plainly and suggest the fix; do not loop forever. Stop after 6 failed attempts and explain what is blocking.
 
 ## Other notes

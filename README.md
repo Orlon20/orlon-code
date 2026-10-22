@@ -1,34 +1,60 @@
 # Orlon Code
 
-Vibecode on your phone. Orlon Code runs [OpenCode](https://opencode.ai) (MIT) **on the phone itself** — no PC, no ports, no tunnels.
+**Vibecode on your phone.** Orlon Code runs the [OpenCode](https://opencode.ai) coding agent entirely on an Android phone, with
+no computer, server, or tunnel. Ask for an app, and it writes it, builds a real APK on the phone, and offers to install it.
+
+- **Everything on the phone.** The agent and its Linux sandbox live in the app's private storage. Only the AI model is remote.
+- **Builds Android apps.** JDK 17 + Android SDK 36 install themselves on the first build; Gradle, `aapt2` and signing all run locally.
+- **Tap to install.** When an APK is ready you get an install banner (or a notification); APK paths in the chat are tappable.
+- **Themes.** `/themes` (or Settings > Themes) switches between all of OpenCode's themes; the whole app follows.
+- **Preview.** Settings > Preview what was built shows web projects (or any local dev-server port).
+- **Free models included.** OpenCode's free models work out of the box; add your own providers in OpenCode's settings.
+
+> Orlon Code is an independent project and is not affiliated with the OpenCode project.
+
+## Requirements
+
+An arm64 Android phone (Android 8 or newer) with about 2 GB free for the sandbox (more for app builds: the Android SDK and
+Gradle caches take roughly 3 GB), and an internet connection.
 
 ## Install
-1. Install `OrlonCode.apk` (allow "install unknown apps" for your browser/file manager).
-2. Open it and tap **Set up Orlon Code** once (about 100 MB download, about 600 MB installed; Wi-Fi recommended).
-3. You land on the prompt box. Pick a model and start prompting. Free OpenCode models work out of the box; add your own providers/API keys from OpenCode's **Settings → Providers**.
+
+Download the APK from the project's Releases page and open it (allow "install unknown apps" for your browser or file
+manager). On first launch tap **Set up Orlon Code**; it downloads about 100 MB once.
+
+Build from source instead:
+
+```bash
+./gradlew assembleDebug            # needs JDK 17 and Android SDK platform 36
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, signing a release, and developing on a device.
 
 ## Using it
-- Projects live in `/root/projects` inside the app's private Linux sandbox.
-- **Settings (cog) → Preview what was built** opens your project as a website (e.g. `index.html`) or any local dev-server port (type `5173`). Review code changes in OpenCode's own **Changes** tab.
-- **Themes:** type `/themes` in the prompt box and send (or **Settings → Themes**) to pick from OpenCode's 37 themes plus System/Light/Dark. The whole app follows it: OpenCode's UI, setup/error/About screens, menus and system bars.
-- The agent keeps running in the background (a notification shows while it does; tap **Stop** to end it).
-- **Settings (cog) → Connect to a PC instead** lets Orlon Code be a remote client for an OpenCode server on another machine.
 
-## Build Android apps on the phone
-Ask the agent, e.g. "make a tip calculator app and build the APK". It scaffolds a project (`orlon-new-android`), writes the code, runs Gradle on the phone (`orlon-build`), reads compiler errors, fixes them and rebuilds until it succeeds. The first build installs the build tools by itself (JDK 17 + Android SDK 36, about 750 MB). When an APK is ready you get an **Install** banner or notification, and any APK path in the chat is tappable.
+1. Open the app; you land on the prompt box. Pick a model if you like.
+2. Ask for something: *"Make a tip calculator Android app and build the APK."* The first build installs the build tools by
+   itself (about 750 MB, a few minutes).
+3. When the build finishes, tap **Install** on the banner, or tap the APK path in the chat.
 
-You can also drive it yourself: **Settings (cog) > Build Android app** lets you set up the tools, pick or add a project (clone a public Git repo or import a ZIP), build debug or release APKs, see parsed errors, install/share the APK, or hand the errors to the agent. Projects that have a `gradlew` use their own Gradle wrapper. Release builds are signed with a key created on the phone (keep it: updates must use the same key).
-
-Limits: arm64 phones only; the first build of a project downloads its libraries; very large projects may not fit in memory; no NDK/CMake yet; private Git repositories are not supported in the clone dialog.
+Projects live in the sandbox at `/root/projects`. Release builds are signed with a key created on the phone; keep the app
+installed (or you lose the key) if you need to publish updates under the same signature.
 
 ## How it works
-`libproot.so` (proot, shipped as a native library) launches an Alpine Linux arm64 root filesystem in app storage; OpenCode 1.19.3 (musl arm64) runs inside it as `opencode web` on `127.0.0.1` with a random per-install password. The app's WebView shows OpenCode's UI with Orlon Code branding and phone-fit fixes. Downloads (Alpine + OpenCode) are pinned and SHA-256 verified.
 
-## Build
-```
-./gradlew testDebugUnitTest assembleRelease   # needs JDK 17 + Android SDK 36; release signing via keystore.properties
-```
-Keep `keystore/mobilecode.jks` and `keystore.properties` safe: updates must be signed with the same key. Installing a build signed with a different key requires uninstalling first (which deletes on-device projects).
+`libproot.so` (proot, shipped as a native library) starts an Alpine Linux arm64 root filesystem in app storage, and OpenCode
+runs inside it as a local web server on `127.0.0.1` protected by a random per-install password. The app shows OpenCode's web UI
+in a WebView with phone-fit fixes and branding. Small shell tools in the sandbox (`orlon-new-android`, `orlon-build`,
+`orlon-toolchain`) give the agent a one-command path from idea to APK. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Limits
-arm64 phones only (Android 8+). Models run in the cloud, so internet is required. Preview is for web projects.
+## Limitations
+
+- arm64 phones only. Models run in the cloud, so you need a connection to prompt.
+- The first build of each project downloads its libraries; very large projects may not fit in memory.
+- Android builds only for now (no NDK/CMake). Private Git repositories are not supported.
+- The app styles OpenCode's web interface by injecting small scripts, so a large OpenCode redesign may need updates here.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Bundled and downloaded components keep their own licenses: see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (this includes GPL/LGPL components and how to get their source).
