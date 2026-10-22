@@ -10,8 +10,8 @@ class AboutActivity : AppCompatActivity() {
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(Palette.BG); applySystemInsets()
-            addView(label("Mobilecode", 26f, mono = true))
-            addView(label("v1.0", 12f, Palette.MUTED, mono = true))
+            addView(label("Mobilecode", 26f, bold = true))
+            addView(label("v1.0", 12f, Palette.FAINT))
             addView(label("\nA mobile client for your own OpenCode server.\n\nPowered by OpenCode (https://opencode.ai), MIT License, © the OpenCode authors. Mobilecode is an independent app and is not affiliated with OpenCode.", 14f))
         })
     }

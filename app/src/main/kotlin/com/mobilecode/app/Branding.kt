@@ -89,4 +89,27 @@ object Branding {
   } catch(e) {}
 })();
 """
+
+    /** Hides the "Add more models from popular providers" block in the model picker. Never throws. */
+    const val NO_PROVIDER_BLOCK_JS = """
+(function(){
+  try {
+    if (window.__mcNoProv) return; window.__mcNoProv = true;
+    function run(){
+      try {
+        document.querySelectorAll('[data-component="dialog-body"] div').forEach(function(e){
+          if (e.children.length === 0 && e.textContent.trim() === 'Add more models from popular providers') {
+            var box = e.parentElement && e.parentElement.parentElement;
+            if (box && String(box.className).indexOf('rounded-lg') >= 0 && box.style.display !== 'none') box.style.display = 'none';
+          }
+        });
+      } catch(e) {}
+    }
+    run();
+    var pending = false;
+    new MutationObserver(function(){ if (pending) return; pending = true; setTimeout(function(){ pending = false; run(); }, 100); })
+      .observe(document.documentElement, {childList:true, subtree:true});
+  } catch(e) {}
+})();
+"""
 }

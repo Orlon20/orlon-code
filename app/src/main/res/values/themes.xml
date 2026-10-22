@@ -1,8 +1,20 @@
 <resources>
     <style name="Theme.Mobilecode" parent="Theme.AppCompat.NoActionBar">
-        <item name="android:windowBackground">#0A0A0A</item>
-        <item name="android:statusBarColor">#0A0A0A</item>
-        <item name="android:navigationBarColor">#0A0A0A</item>
-        <item name="android:textColor">#EDEDED</item>
+        <item name="android:windowBackground">#080808</item>
+        <item name="android:statusBarColor">#080808</item>
+        <item name="android:navigationBarColor">#080808</item>
+        <item name="android:textColor">#FAFAFA</item>
+        <item name="android:colorBackground">#161616</item>
+        <item name="popupMenuStyle">@style/MCPopup</item>
+        <item name="textAppearanceLargePopupMenu">@style/MCPopupText</item>
+        <item name="textAppearanceSmallPopupMenu">@style/MCPopupText</item>
+    </style>
+    <style name="MCPopup" parent="Widget.AppCompat.PopupMenu">
+        <item name="android:popupBackground">@drawable/popup_bg</item>
+        <item name="android:popupElevation">8dp</item>
+    </style>
+    <style name="MCPopupText" parent="TextAppearance.AppCompat.Widget.PopupMenu.Large">
+        <item name="android:textColor">#FAFAFA</item>
+        <item name="android:textSize">14sp</item>
     </style>
 </resources>

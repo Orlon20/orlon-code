@@ -71,7 +71,7 @@ class MainActivity : AppCompatActivity() {
                         v.evaluateJavascript(Branding.PRUNE_DRAFTS_JS) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -92,11 +92,11 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        errorText = label("", 15f, Palette.FG, mono = true).apply { gravity = Gravity.CENTER }
+        errorText = label("", 15f, Palette.FG).apply { gravity = Gravity.CENTER }
         errorView = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setBackgroundColor(Palette.BG); visibility = android.view.View.GONE; setPadding(dp(24), 0, dp(24), 0)
-            addView(label("Mobilecode", 24f, mono = true).apply { setPadding(0, 0, 0, dp(16)) })
+            addView(label("Mobilecode", 24f, bold = true).apply { setPadding(0, 0, 0, dp(16)) })
             addView(errorText)
             retryBtn = primaryButton("Retry") { if (local) restartLocal() else load() }
             altBtn = ghostButton(if (local) "Connect to a PC instead" else "Rescan / change server") { startActivity(Intent(this@MainActivity, ConnectActivity::class.java)) }

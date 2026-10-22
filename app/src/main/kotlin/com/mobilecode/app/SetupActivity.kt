@@ -25,13 +25,13 @@ class SetupActivity : AppCompatActivity() {
         bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; progressTintList = android.content.res.ColorStateList.valueOf(Palette.ACCENT); visibility = android.view.View.INVISIBLE
         }
-        logv = label("", 11f, Palette.MUTED, mono = true)
+        logv = label("", 11f, Palette.FAINT, mono = true)
         go = primaryButton("Set up Mobilecode") { start() }
         other = ghostButton("Connect to a PC instead") { Prefs(this).remote = true; startActivity(Intent(this, ConnectActivity::class.java)); finish() }
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundColor(Palette.BG); applySystemInsets()
-            addView(label("Mobilecode", 30f, mono = true))
+            addView(label("Mobilecode", 28f, bold = true))
             addView(label("Vibecode on your phone. No PC needed.", 14f, Palette.MUTED).apply { setPadding(0, dp(4), 0, dp(24)) })
             addView(step); addView(bar, LinearLayout.LayoutParams(-1, dp(24)).apply { topMargin = dp(16) })
             addView(go, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })
@@ -42,7 +42,7 @@ class SetupActivity : AppCompatActivity() {
 
     private fun start() {
         if (running) return
-        running = true; go.isEnabled = false; other.isEnabled = false; bar.visibility = android.view.View.VISIBLE
+        running = true; go.isEnabled = false; other.isEnabled = false; go.alpha = 0.4f; other.alpha = 0.4f; bar.visibility = android.view.View.VISIBLE
         thread {
             try {
                 Installer(this, { s, pct -> runOnUiThread { step.text = s; bar.progress = pct } }, { l ->
@@ -51,7 +51,7 @@ class SetupActivity : AppCompatActivity() {
                 runOnUiThread { startActivity(Intent(this, MainActivity::class.java)); finish() }
             } catch (e: Exception) {
                 runOnUiThread {
-                    step.text = "Setup failed: ${e.message}"; go.text = "Retry"; go.isEnabled = true; other.isEnabled = true; running = false
+                    step.text = "Setup failed: ${e.message}"; go.text = "Retry"; go.isEnabled = true; other.isEnabled = true; go.alpha = 1f; other.alpha = 1f; running = false
                 }
             }
         }

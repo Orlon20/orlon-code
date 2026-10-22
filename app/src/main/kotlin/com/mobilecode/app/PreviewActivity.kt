@@ -73,9 +73,9 @@ class PreviewActivity : AppCompatActivity() {
             }
         }
         bar = EditText(this).apply {
-            hint = "file or port (e.g. 5173)"; setHintTextColor(Palette.MUTED); setTextColor(Palette.FG)
-            typeface = android.graphics.Typeface.MONOSPACE; setSingleLine(); textSize = 14f
-            imeOptions = EditorInfo.IME_ACTION_GO; setBackgroundColor(Palette.CARD); setPadding(dp(12), 0, dp(12), 0)
+            hint = "file or port (e.g. 5173)"; setHintTextColor(Palette.FAINT); setTextColor(Palette.FG)
+            typeface = android.graphics.Typeface.SANS_SERIF; setSingleLine(); textSize = 14f
+            imeOptions = EditorInfo.IME_ACTION_GO; background = android.graphics.drawable.GradientDrawable().apply { setColor(Palette.CARD); cornerRadius = dp(8).toFloat(); setStroke(dp(1), Palette.BORDER) }; setPadding(dp(12), 0, dp(12), 0)
             setOnEditorActionListener { _, _, _ -> go(text.toString()); clearFocus(); true }
         }
         fun btn(t: String, f: () -> Unit) = TextView(this).apply {
