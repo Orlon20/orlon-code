@@ -1,5 +1,4 @@
 <p align="center">
-  <img src="assets/orlon-code.png" width="110" alt="Orlon Code">
 </p>
 
 <h1 align="center">Orlon Code</h1>
