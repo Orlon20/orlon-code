@@ -40,6 +40,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var errTitle: WordmarkView
     private var themeDialog: ThemeDialog? = null
     private var showThemesWhenReady = false
+    private lateinit var loadingView: FrameLayout
+    private lateinit var loadingMark: WordmarkView
+    private lateinit var loadingCaption: TextView
+    private var loadingAnim: android.animation.ObjectAnimator? = null
+    private var loadingVisible = false
+    private var loadingShownAt = 0L
+    private var awaitingReady = false
 
     /** Page -> app calls (only these two; the app never exposes anything else to web content). */
     private inner class Bridge {
@@ -83,10 +90,10 @@ class MainActivity : AppCompatActivity() {
                     refresh.isRefreshing = false
                     if (pruneThenHome) {
                         pruneThenHome = false
-                        v.evaluateJavascript(Branding.PRUNE_DRAFTS_JS) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
+                        v.evaluateJavascript(Branding.prepStateJs(if (local) Sandbox.WORKSPACE else null)) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -133,9 +140,19 @@ class MainActivity : AppCompatActivity() {
             addView(android.view.View(this@MainActivity), android.widget.LinearLayout.LayoutParams(0, 1, 1f))
             addView(menuBtn, android.widget.LinearLayout.LayoutParams(dp(44), dp(36)))
         }
+        loadingMark = wordmark(26)
+        loadingCaption = label("Starting your agent…", 12f, Palette.FAINT).apply { gravity = Gravity.CENTER; setPadding(0, dp(18), 0, 0) }
+        loadingView = FrameLayout(this).apply {
+            setBackgroundColor(Palette.BG); visibility = android.view.View.GONE; isClickable = true
+            addView(android.widget.LinearLayout(this@MainActivity).apply {
+                orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
+                addView(loadingMark); addView(loadingCaption)
+            }, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        }
         rootFrame = FrameLayout(this).apply {
             addView(web, ViewGroup.LayoutParams(-1, -1))
             addView(errorView, ViewGroup.LayoutParams(-1, -1))
+            addView(loadingView, ViewGroup.LayoutParams(-1, -1))
         }
         rootColumn = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; setBackgroundColor(Palette.BG); applySystemInsets()
@@ -159,7 +176,7 @@ class MainActivity : AppCompatActivity() {
     private fun startLocal() {
         if (starting) return
         starting = true; failed = false
-        showMessage("Starting your agent…", buttons = false)
+        showLoading("Starting your agent…")
         thread {
             if (!LocalServerService.running && checkServer(prefs.localServer()) != CheckResult.OK) prefs.rotatePortIfBusy()
             val s = prefs.localServer()
@@ -207,7 +224,7 @@ class MainActivity : AppCompatActivity() {
     private fun load() {
         if (local) { startLocal(); return }
         val s = server ?: return
-        failed = false; errorView.visibility = android.view.View.GONE
+        failed = false; errorView.visibility = android.view.View.GONE; showLoading("Connecting…")
         // Pre-check so 401 / unreachable get distinct messages even when the WebView hides them.
         thread {
             val res = checkServer(s)
@@ -221,7 +238,54 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showError(msg: String) { failed = true; showMessage(msg, buttons = true) }
+    private fun showError(msg: String) { failed = true; hideLoading(immediately = true); showMessage(msg, buttons = true) }
+
+    // ---- Loading screen -------------------------------------------------------------------------
+
+    private val MIN_LOADING_MS = 1600L
+
+    /** Branded loading screen that covers every intermediate page load until the prompt screen is really ready. */
+    private fun showLoading(caption: String) {
+        loadingCaption.text = caption
+        if (loadingVisible) return
+        loadingVisible = true; awaitingReady = false; loadingShownAt = System.currentTimeMillis()
+        errorView.visibility = android.view.View.GONE
+        loadingView.animate().cancel(); loadingView.alpha = 1f; loadingView.visibility = android.view.View.VISIBLE
+        loadingAnim?.cancel()
+        loadingAnim = android.animation.ObjectAnimator.ofFloat(loadingMark, android.view.View.ALPHA, 0.35f, 1f).apply {
+            duration = 900; repeatMode = android.animation.ValueAnimator.REVERSE; repeatCount = android.animation.ValueAnimator.INFINITE; start()
+        }
+    }
+
+    private fun hideLoading(immediately: Boolean = false) {
+        if (!loadingVisible) return
+        val wait = if (immediately) 0L else (MIN_LOADING_MS - (System.currentTimeMillis() - loadingShownAt)).coerceAtLeast(0)
+        loadingView.postDelayed({
+            // Two steps so the logo never shows over the page underneath: logo first, then the cover.
+            fun finish() { loadingView.visibility = android.view.View.GONE; loadingAnim?.cancel(); loadingMark.alpha = 1f; loadingCaption.alpha = 1f; loadingVisible = false }
+            if (immediately) { finish(); return@postDelayed }
+            loadingAnim?.cancel()
+            loadingMark.animate().alpha(0f).setDuration(120).start()
+            loadingCaption.animate().alpha(0f).setDuration(120).withEndAction {
+                loadingView.animate().alpha(0f).setDuration(220).withEndAction { finish() }.start()
+            }.start()
+        }, wait)
+    }
+
+    /** The prompt box exists in the page: the screen is really ready, so lift the loading cover. */
+    private fun awaitPromptThenHide(attempt: Int = 0) {
+        if (!loadingVisible || (attempt == 0 && awaitingReady)) return
+        awaitingReady = true
+        // Ready = prompt box exists AND its model label has resolved (otherwise "Select model" flashes before the real name).
+        val js = "(function(){var f=document.querySelector('form[class*=\"prompt-input\"]');if(!f)return 'no';" +
+            "var labels=[].slice.call(f.querySelectorAll('button')).map(function(b){return b.innerText.trim()}).filter(function(t){return t.length>2});" +
+            "if(!labels.length)return 'no';return labels.some(function(t){return /Select model/i.test(t)})?'model':'ok'})()"
+        web.evaluateJavascript(js) { r ->
+            val ready = r == "\"ok\"" || (r == "\"model\"" && attempt > 40) || attempt > 66
+            if (ready) { awaitingReady = false; hideLoading() }
+            else web.postDelayed({ awaitingReady = false; awaitPromptThenHide(attempt + 1) }, 150)
+        }
+    }
 
     private fun showMessage(msg: String, buttons: Boolean) {
         refresh.isRefreshing = false
@@ -293,6 +357,7 @@ class MainActivity : AppCompatActivity() {
         if (json == "{}" || json == prefs.paletteJson) return
         prefs.paletteJson = json
         applyThemeChrome()
+        loadingView.setBackgroundColor(Palette.BG); loadingMark.color = Palette.FG; loadingCaption.setTextColor(Palette.FAINT); loadingMark.invalidate()
         rootColumn.setBackgroundColor(Palette.BG); rootFrame.setBackgroundColor(Palette.BG); brandLabel.color = Palette.FG; brandLabel.invalidate(); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
         errorText.setTextColor(Palette.FG); errTitle.color = Palette.FG; errTitle.invalidate(); menuBtn.setTextColor(Palette.FG)
         retryBtn.stylePrimary(); altBtn.styleGhost()

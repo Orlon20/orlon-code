@@ -55,14 +55,30 @@ object Branding {
 })();
 """
 
-    /** Drops leftover empty-draft tabs so each launch opens exactly one fresh prompt screen. Never throws. */
-    const val PRUNE_DRAFTS_JS = """
+    /**
+     * Run once per launch on a same-origin page before the home screen loads: drops leftover empty-draft tabs and, in
+     * on-device mode, registers the default project in OpenCode's own state so the Projects tab lists it with its sessions.
+     * Never throws.
+     */
+    fun prepStateJs(project: String?): String = """
 (function(){
   try {
     var k = 'opencode.window.browser.dat:tabs';
     var tabs = JSON.parse(localStorage.getItem(k) || '[]');
     localStorage.setItem(k, JSON.stringify(tabs.filter(function(t){ return t && t.type !== 'draft'; })));
     localStorage.removeItem(k + '.recent');
+  } catch(e) {}
+  try {
+    var DIR = ${if (project == null) "null" else "'" + project + "'"};
+    if (DIR) {
+      var sk = 'opencode.global.dat:server', st = {};
+      try { st = JSON.parse(localStorage.getItem(sk) || '{}') || {}; } catch(e) { st = {}; }
+      st.list = st.list || []; st.projects = st.projects || {}; st.recentlyClosed = st.recentlyClosed || {};
+      var arr = st.projects.local || [];
+      if (!arr.some(function(p){ return p && p.worktree === DIR; })) arr.push({worktree: DIR, expanded: true});
+      st.projects.local = arr; st.lastProject = st.lastProject || {}; st.lastProject.local = DIR;
+      localStorage.setItem(sk, JSON.stringify(st));
+    }
   } catch(e) {}
   return 'ok';
 })()
@@ -97,7 +113,7 @@ object Branding {
     if (window.__mcNoProv) return; window.__mcNoProv = true;
     function run(){
       try {
-        document.querySelectorAll('[data-component="dialog-body"] div').forEach(function(e){
+        document.querySelectorAll('[data-slot="dialog-body"] div, [data-component="dialog-body"] div').forEach(function(e){
           if (e.children.length === 0 && e.textContent.trim() === 'Add more models from popular providers') {
             var box = e.parentElement && e.parentElement.parentElement;
             if (box && String(box.className).indexOf('rounded-lg') >= 0 && box.style.display !== 'none') box.style.display = 'none';
