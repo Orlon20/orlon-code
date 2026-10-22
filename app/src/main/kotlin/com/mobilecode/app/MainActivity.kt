@@ -97,7 +97,7 @@ class MainActivity : AppCompatActivity() {
                 override fun shouldOverrideUrlLoading(v: WebView, r: WebResourceRequest): Boolean {
                     val host = Uri.parse(server!!.url).host
                     if (r.url.host == host) return false
-                    startActivity(Intent(Intent.ACTION_VIEW, r.url)); return true
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW, r.url)) }; return true
                 }
             }
             addJavascriptInterface(Bridge(), "MobilecodeBridge")
@@ -160,9 +160,10 @@ class MainActivity : AppCompatActivity() {
         if (starting) return
         starting = true; failed = false
         showMessage("Starting your agent…", buttons = false)
-        LocalServerService.start(this)
-        val s = prefs.localServer()
         thread {
+            if (!LocalServerService.running && checkServer(prefs.localServer()) != CheckResult.OK) prefs.rotatePortIfBusy()
+            val s = prefs.localServer()
+            LocalServerService.start(this)
             var res = CheckResult.UNREACHABLE
             val deadline = System.currentTimeMillis() + 120_000
             while (System.currentTimeMillis() < deadline) {
@@ -174,10 +175,16 @@ class MainActivity : AppCompatActivity() {
                 starting = false
                 server = s
                 if (res == CheckResult.OK) { failed = false; errorView.visibility = android.view.View.GONE; loadHome() }
-                else showError("Your agent didn't start.\nTap Retry, or see server.log in the app files.")
+                else showError("Your agent didn't start.\n" + serverLogTail() + "\nTap Retry.")
             }
         }
     }
+
+    /** Last meaningful line(s) of the agent's log, so a failed start explains itself. */
+    private fun serverLogTail(): String = runCatching {
+        java.io.File(filesDir, "server.log").readLines().map { it.replace(Regex("\u001B\\[[0-9;]*m"), "").trim() }
+            .filter { it.isNotEmpty() && !it.startsWith("█") && !it.startsWith("▀") }.takeLast(2).joinToString("\n")
+    }.getOrDefault("")
 
     /** Load a tiny same-origin page first so stale draft tabs can be cleared, then open the prompt screen. */
     private fun loadHome() {

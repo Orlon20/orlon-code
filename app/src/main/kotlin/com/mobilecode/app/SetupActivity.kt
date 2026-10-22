@@ -43,7 +43,7 @@ class SetupActivity : AppCompatActivity() {
 
     private fun start() {
         if (running) return
-        running = true; go.isEnabled = false; other.isEnabled = false; go.alpha = 0.4f; other.alpha = 0.4f; bar.visibility = android.view.View.VISIBLE
+        running = true; window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON); go.isEnabled = false; other.isEnabled = false; go.alpha = 0.4f; other.alpha = 0.4f; bar.visibility = android.view.View.VISIBLE
         thread {
             try {
                 Installer(this, { s, pct -> runOnUiThread { step.text = s; bar.progress = pct } }, { l ->

@@ -45,9 +45,17 @@ class ConnectActivity : AppCompatActivity() {
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent) }
 
+    /** A deep link can come from any web page or app, so never connect without the user's say-so. */
     private fun handleIntent(i: Intent?) {
         val data = i?.dataString ?: return
-        handlePairing(data)
+        val r = parsePairing(data)
+        if (r is PairResult.Invalid) { status.text = r.reason; return }
+        val server = (r as PairResult.Ok).server
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Connect to this server?")
+            .setMessage("${server.url}\n\nOnly continue if you started this pairing yourself. The server will be able to show pages and run an agent in this app.")
+            .setPositiveButton("Connect") { _, _ -> connect(server) }
+            .setNegativeButton("Cancel", null).show()
     }
 
     private fun scan() {

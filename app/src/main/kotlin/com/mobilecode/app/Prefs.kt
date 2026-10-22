@@ -34,5 +34,12 @@ class Prefs(ctx: Context) {
         get() = if (sp.getString("themesVer", "") == Sandbox.OPENCODE_VERSION) sp.getString("themes", "") ?: "" else ""
         set(v) { sp.edit().putString("themes", v).putString("themesVer", Sandbox.OPENCODE_VERSION).apply() }
 
+    /** If something else holds our port (and our own server isn't the one running), pick a new free port. */
+    fun rotatePortIfBusy() {
+        val port = localPort
+        val free = try { ServerSocket(port).use { true } } catch (e: Exception) { false }
+        if (!free) sp.edit().putInt("lport", ServerSocket(0).use { it.localPort }).apply()
+    }
+
     fun localServer() = Server("http://127.0.0.1:$localPort", localPassword)
 }

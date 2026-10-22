@@ -30,7 +30,9 @@ class LocalServerService : Service() {
             .setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Orlon Code is running")
             .setContentText("Your coding agent stays available in the background.")
             .setContentIntent(open).addAction(0, "Stop", stop).setOngoing(true).build()
-        ServiceCompat.startForeground(this, 1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+        // When the system restarts this service in the background, Android may refuse to promote it; stop cleanly instead of crashing.
+        try { ServiceCompat.startForeground(this, 1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE) }
+        catch (e: Exception) { stopSelf(); return START_NOT_STICKY }
         if (proc?.isAlive != true) startServer()
         return START_STICKY
     }
@@ -46,14 +48,16 @@ class LocalServerService : Service() {
         val args = listOf("/usr/local/bin/opencode", "web", "--hostname", "127.0.0.1", "--port", prefs.localPort.toString())
         proc = Sandbox.processBuilder(p, Sandbox.WORKSPACE, env, args)
             .redirectOutput(File(filesDir, "server.log")).start()
+        running = true
     }
 
-    private fun stopServer() { proc?.destroy(); proc = null; runCatching { Runtime.getRuntime().exec(arrayOf("pkill", "-f", "libproot.so")) } }
+    private fun stopServer() { running = false; proc?.destroy(); proc = null; runCatching { Runtime.getRuntime().exec(arrayOf("pkill", "-f", "libproot.so")) } }
 
     override fun onDestroy() { stopServer(); super.onDestroy() }
 
     companion object {
         const val ACTION_STOP = "com.mobilecode.app.STOP"
+        @Volatile var running = false
         fun start(ctx: Context) = ContextCompat.startForegroundService(ctx, Intent(ctx, LocalServerService::class.java))
         fun stop(ctx: Context) { ctx.startService(Intent(ctx, LocalServerService::class.java).setAction(ACTION_STOP)) }
     }
