@@ -15,13 +15,12 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
     private lateinit var store: ServerStore
     private lateinit var web: WebView
-    private lateinit var refresh: SwipeRefreshLayout
+    private val refresh = object { var isRefreshing = false }
     private lateinit var errorView: android.widget.LinearLayout
     private lateinit var errorText: TextView
     private var server: Server? = null
@@ -40,10 +39,12 @@ class MainActivity : AppCompatActivity() {
         server = store.active()
         if (server == null) { startActivity(Intent(this, ConnectActivity::class.java)); finish(); return }
 
+        if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
             setBackgroundColor(Palette.BG)
             settings.javaScriptEnabled = true; settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = false
+            settings.useWideViewPort = true; settings.loadWithOverviewMode = true
             webViewClient = object : WebViewClient() {
                 override fun onReceivedHttpAuthRequest(v: WebView, h: HttpAuthHandler, host: String?, realm: String?) {
                     h.proceed(AUTH_USER, server!!.password)
@@ -71,12 +72,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        refresh = SwipeRefreshLayout(this).apply {
-            setColorSchemeColors(Palette.ACCENT); setProgressBackgroundColorSchemeColor(Palette.CARD)
-            addView(web); setOnRefreshListener { load() }
-            // Only allow pull-to-refresh at the very top of the page.
-            setOnChildScrollUpCallback { _, _ -> web.scrollY > 0 }
-        }
         errorText = label("", 15f, Palette.FG, mono = true).apply { gravity = Gravity.CENTER }
         errorView = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -93,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         }
         setContentView(FrameLayout(this).apply {
             setBackgroundColor(Palette.BG); applySystemInsets()
-            addView(refresh, ViewGroup.LayoutParams(-1, -1))
+            addView(web, ViewGroup.LayoutParams(-1, -1))
             addView(errorView, ViewGroup.LayoutParams(-1, -1))
             addView(menu, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.END))
         })

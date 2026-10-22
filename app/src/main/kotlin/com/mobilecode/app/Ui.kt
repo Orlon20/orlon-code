@@ -39,7 +39,10 @@ fun Context.field(hint: String, password: Boolean = false) = EditText(this).appl
     inputType = if (password) 129 else 17 // textPassword / textUri
 }
 
-fun View.applySystemInsets() = ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
-    val i = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
-    v.setPadding(i.left, i.top, i.right, i.bottom); WindowInsetsCompat.CONSUMED
+fun View.applySystemInsets() {
+    val l = paddingLeft; val t = paddingTop; val r = paddingRight; val b = paddingBottom
+    ViewCompat.setOnApplyWindowInsetsListener(this) { v, insets ->
+        val i = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
+        v.setPadding(l + i.left, t + i.top, r + i.right, b + i.bottom); WindowInsetsCompat.CONSUMED
+    }
 }

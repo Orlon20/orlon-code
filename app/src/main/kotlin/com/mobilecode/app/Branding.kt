@@ -9,23 +9,23 @@ object Branding {
     var re = /open\s*code/gi;
     function swap(root){
       try {
-        document.title = document.title.replace(re, 'Mobilecode');
+        var t = document.title; if (/open\s*code/i.test(t)) document.title = t.replace(/open\s*code/gi, 'Mobilecode');
         var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
         var n; while ((n = w.nextNode())) {
           var p = n.parentNode && n.parentNode.nodeName;
           if (p === 'SCRIPT' || p === 'STYLE' || p === 'TEXTAREA') continue;
-          if (re.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(re, 'Mobilecode');
-          re.lastIndex = 0;
+          if (/open\s*code/i.test(n.nodeValue)) n.nodeValue = n.nodeValue.replace(re, 'Mobilecode');
         }
         root.querySelectorAll && root.querySelectorAll('[aria-label],[alt],[title]').forEach(function(e){
           ['aria-label','alt','title'].forEach(function(a){
-            var v = e.getAttribute(a); if (v && re.test(v)) e.setAttribute(a, v.replace(re,'Mobilecode')); re.lastIndex = 0;
+            var v = e.getAttribute(a); if (v && /open\s*code/i.test(v)) e.setAttribute(a, v.replace(re,'Mobilecode'));
           });
         });
       } catch(e) {}
     }
     swap(document.body || document.documentElement);
-    new MutationObserver(function(){ swap(document.body); }).observe(document.documentElement, {childList:true, subtree:true, characterData:true});
+    var pending = false;
+    new MutationObserver(function(){ if (pending) return; pending = true; setTimeout(function(){ pending = false; swap(document.body); }, 400); }).observe(document.documentElement, {childList:true, subtree:true, characterData:true});
   } catch(e) {}
 })();
 """
