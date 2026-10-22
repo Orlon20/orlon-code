@@ -1,10 +1,10 @@
-# Mobilecode
+# Orlon Code
 
-Vibecode on your phone. Mobilecode runs [OpenCode](https://opencode.ai) (MIT) **on the phone itself** — no PC, no ports, no tunnels.
+Vibecode on your phone. Orlon Code runs [OpenCode](https://opencode.ai) (MIT) **on the phone itself** — no PC, no ports, no tunnels.
 
 ## Install
-1. Install `Mobilecode.apk` (allow "install unknown apps" for your browser/file manager).
-2. Open it and tap **Set up Mobilecode** once (about 100 MB download, about 600 MB installed; Wi-Fi recommended).
+1. Install `OrlonCode.apk` (allow "install unknown apps" for your browser/file manager).
+2. Open it and tap **Set up Orlon Code** once (about 100 MB download, about 600 MB installed; Wi-Fi recommended).
 3. You land on the prompt box. Pick a model and start prompting. Free OpenCode models work out of the box; add your own providers/API keys from OpenCode's **Settings → Providers**.
 
 ## Using it
@@ -12,10 +12,10 @@ Vibecode on your phone. Mobilecode runs [OpenCode](https://opencode.ai) (MIT) **
 - **⋮ → Preview what was built** opens your project as a website (e.g. `index.html`) or any local dev-server port (type `5173`). Review code changes in OpenCode's own **Changes** tab.
 - **Themes:** type `/themes` in the prompt box and send (or **⋮ → Themes**) to pick from OpenCode's 37 themes plus System/Light/Dark. The whole app follows it: OpenCode's UI, setup/error/About screens, menus and system bars.
 - The agent keeps running in the background (a notification shows while it does; tap **Stop** to end it).
-- **⋮ → Connect to a PC instead** lets Mobilecode be a remote client for an OpenCode server on another machine.
+- **⋮ → Connect to a PC instead** lets Orlon Code be a remote client for an OpenCode server on another machine.
 
 ## How it works
-`libproot.so` (proot, shipped as a native library) launches an Alpine Linux arm64 root filesystem in app storage; OpenCode 1.19.3 (musl arm64) runs inside it as `opencode web` on `127.0.0.1` with a random per-install password. The app's WebView shows OpenCode's UI with Mobilecode branding and phone-fit fixes. Downloads (Alpine + OpenCode) are pinned and SHA-256 verified.
+`libproot.so` (proot, shipped as a native library) launches an Alpine Linux arm64 root filesystem in app storage; OpenCode 1.19.3 (musl arm64) runs inside it as `opencode web` on `127.0.0.1` with a random per-install password. The app's WebView shows OpenCode's UI with Orlon Code branding and phone-fit fixes. Downloads (Alpine + OpenCode) are pinned and SHA-256 verified.
 
 ## Build
 ```

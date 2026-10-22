@@ -27,12 +27,12 @@ class SetupActivity : AppCompatActivity() {
             max = 100; progressTintList = android.content.res.ColorStateList.valueOf(Palette.ACCENT); visibility = android.view.View.INVISIBLE
         }
         logv = label("", 11f, Palette.FAINT, mono = true)
-        go = primaryButton("Set up Mobilecode") { start() }
+        go = primaryButton("Set up Orlon Code") { start() }
         other = ghostButton("Connect to a PC instead") { Prefs(this).remote = true; startActivity(Intent(this, ConnectActivity::class.java)); finish() }
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(24), dp(24), dp(24), dp(24)); setBackgroundColor(Palette.BG); applySystemInsets()
-            addView(label("Mobilecode", 28f, bold = true))
+            addView(wordmark(22))
             addView(label("Vibecode on your phone. No PC needed.", 14f, Palette.MUTED).apply { setPadding(0, dp(4), 0, dp(24)) })
             addView(step); addView(bar, LinearLayout.LayoutParams(-1, dp(24)).apply { topMargin = dp(16) })
             addView(go, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(16) })

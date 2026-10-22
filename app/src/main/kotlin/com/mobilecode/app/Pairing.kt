@@ -48,7 +48,7 @@ fun normalizeUrl(raw: String): PairResult {
 
 fun parsePairing(input: String): PairResult {
     val s = input.trim()
-    if (!s.startsWith("mobilecode://connect?")) return invalid("Not a Mobilecode code")
+    if (!s.startsWith("mobilecode://connect?")) return invalid("Not an Orlon Code pairing code")
     val params = s.substringAfter("?").split("&").mapNotNull {
         val i = it.indexOf('=')
         if (i < 0) null else it.substring(0, i) to URLDecoder.decode(it.substring(i + 1), "UTF-8")

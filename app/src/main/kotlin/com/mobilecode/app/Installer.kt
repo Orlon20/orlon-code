@@ -37,7 +37,7 @@ class Installer(private val ctx: Context, private val report: (step: String, per
         val rc = runSandbox(
             "apk add --no-cache libstdc++ libgcc git bash ripgrep ca-certificates && " +
                 "git config --global --add safe.directory '*' && git config --global init.defaultBranch main && " +
-                "git config --global user.name Mobilecode && git config --global user.email mobilecode@localhost",
+                "git config --global user.name \"Orlon Code\" && git config --global user.email orloncode@localhost",
         )
         if (rc != 0) error("Installing tools failed (exit $rc). Check your connection and retry.")
         val v = runSandboxCapture("/usr/local/bin/opencode --version").trim()

@@ -1,7 +1,7 @@
 package com.mobilecode.app
 
 /**
- * Cosmetic only: swaps the standalone OpenCode wordmark and page title for Mobilecode.
+ * Cosmetic only: swaps the standalone OpenCode wordmark and page title for Orlon Code.
  * Provider/model names ("OpenCode Go", "provided by OpenCode") are real services and are left alone.
  * Never throws.
  */
@@ -14,14 +14,14 @@ object Branding {
     function inDialog(n){ return n.closest && n.closest('[role="dialog"],[data-component="dialog"]'); }
     function swap(root){
       try {
-        var t = document.title; if (/open\s*code/i.test(t)) document.title = t.replace(/open\s*code/gi, 'Mobilecode');
+        var t = document.title; if (/open\s*code/i.test(t)) document.title = t.replace(/open\s*code/gi, 'Orlon Code');
         var w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
         var n; while ((n = w.nextNode())) {
           var el = n.parentElement; if (!el || el.nodeName === 'SCRIPT' || el.nodeName === 'STYLE' || el.nodeName === 'TEXTAREA') continue;
-          if (exact.test(n.nodeValue) && !inDialog(el)) n.nodeValue = n.nodeValue.replace(/open\s*code/i, 'Mobilecode');
+          if (exact.test(n.nodeValue) && !inDialog(el)) n.nodeValue = n.nodeValue.replace(/open\s*code/i, 'Orlon Code');
         }
         root.querySelectorAll && root.querySelectorAll('[aria-label],[alt]').forEach(function(e){
-          ['aria-label','alt'].forEach(function(a){ var v = e.getAttribute(a); if (v && exact.test(v)) e.setAttribute(a, 'Mobilecode'); });
+          ['aria-label','alt'].forEach(function(a){ var v = e.getAttribute(a); if (v && exact.test(v)) e.setAttribute(a, 'Orlon Code'); });
         });
       } catch(e) {}
     }
@@ -42,7 +42,7 @@ object Branding {
   try {
     if (window.__mcClean) return; window.__mcClean = true;
     var st = document.createElement('style'); st.id = 'mc-clean';
-    st.textContent = '[class*="provider-tip"], main div[class*="min-h-7"][class*="min-w-0"][class*="flex-col"] { display: none !important; }';
+    st.textContent = '[class*="provider-tip"], main div[class*="min-h-7"][class*="min-w-0"][class*="flex-col"], main div[class*="mt-8"][class*="flex-col"][class*="gap-8"] > :nth-child(n+2) { display: none !important; }';
     function sync(){
       var home = location.pathname.indexOf('/new-session') === 0;
       if (home) { if (!st.parentNode) document.head.appendChild(st); } else if (st.parentNode) st.remove();
@@ -78,8 +78,8 @@ object Branding {
     st.textContent =
       bar + '{overflow:hidden}' + bar + ' > *{min-width:0;flex-shrink:1}' + bar + ' button{min-width:0;max-width:100%}' +
       'html,body{overflow-x:hidden;max-width:100vw}' +
-      '[data-slot=basic-tool-tool-subtitle],[data-slot=shell-submessage-width],[data-component=shell-submessage],[data-slot=shell-submessage-value]' +
-        '{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;overflow-wrap:anywhere!important;max-width:100%!important;height:auto!important}' +
+      '[data-slot=basic-tool-tool-subtitle]{display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:3!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:normal!important;overflow-wrap:anywhere!important;max-width:100%!important;height:auto!important}' +
+      '[data-slot=shell-submessage-width],[data-component=shell-submessage],[data-slot=shell-submessage-value]{white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;overflow-wrap:anywhere!important;max-width:100%!important;height:auto!important}' +
       '[data-slot=shell-submessage-value]{display:inline!important}' +
       '[data-slot=basic-tool-tool-info-main],[data-slot=basic-tool-tool-info-structured]{overflow:visible!important;height:auto!important;min-width:0}' +
       '[data-slot=basic-tool-tool-subtitle]{text-align:left!important}' +
@@ -113,7 +113,7 @@ object Branding {
 })();
 """
 
-    /** Typing "/themes" in the prompt and sending opens Mobilecode's theme picker instead of sending it to the agent. */
+    /** Typing "/themes" in the prompt and sending opens Orlon Code's theme picker instead of sending it to the agent. */
     const val SLASH_THEMES_JS = """
 (function(){
   try {
@@ -180,4 +180,36 @@ object Branding {
   } catch(e) { return '{}'; }
 })()
 """
+
+    /** Replaces OpenCode's large home-screen logo with the Orlon Code wordmark (same grid, same fade). Never throws. */
+    fun logoSwapJs(): String {
+        val cell = Wordmark.OPENCODE_CELL
+        val vb = Wordmark.viewBox(cell)
+        val w = Wordmark.widthCells * cell
+        val h = Wordmark.HEIGHT_CELLS * cell
+        return """
+(function(){
+  try {
+    var D = '${Wordmark.pathData(cell)}', VB = '$vb', W = $w, H = $h;
+    function swap(){
+      document.querySelectorAll('svg.h-auto.w-full.text-v2-background-bg-inverse').forEach(function(s){
+        if (s.getAttribute('data-oc') === '1') return;
+        var paths = s.querySelectorAll('path'); if (!paths.length) return;
+        s.setAttribute('viewBox', VB);
+        paths.forEach(function(p, i){ if (i > 0) p.remove(); });
+        paths[0].setAttribute('d', D);
+        s.querySelectorAll('mask, mask rect').forEach(function(m){ m.setAttribute('width', W); m.setAttribute('height', H); });
+        s.querySelectorAll('linearGradient').forEach(function(g){ g.setAttribute('x1', W/2); g.setAttribute('x2', W/2); g.setAttribute('y1', H*0.53); g.setAttribute('y2', H); });
+        s.setAttribute('data-oc', '1');
+      });
+    }
+    swap();
+    if (window.__ocLogo) return; window.__ocLogo = true;
+    var pending = false;
+    new MutationObserver(function(){ if (pending) return; pending = true; setTimeout(function(){ pending = false; swap(); }, 150); })
+      .observe(document.documentElement, {childList:true, subtree:true});
+  } catch(e) {}
+})();
+"""
+    }
 }

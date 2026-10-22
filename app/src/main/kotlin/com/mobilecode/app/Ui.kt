@@ -17,6 +17,9 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 
 
+/** The Orlon Code pixel wordmark at the given height (dp). */
+fun Context.wordmark(heightDp: Int, color: Int = Palette.FG, alpha: Float = 1f) = WordmarkView(this, dp(heightDp), color, alpha)
+
 fun Context.dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
 fun Context.label(text: String, size: Float = 14f, color: Int = Palette.FG, mono: Boolean = false, bold: Boolean = false) = TextView(this).apply {

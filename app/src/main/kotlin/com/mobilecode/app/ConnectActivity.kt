@@ -24,7 +24,7 @@ class ConnectActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(Palette.BG); applySystemInsets()
-            addView(label("Mobilecode", 28f, bold = true))
+            addView(wordmark(22))
             addView(label("Prompt your coding agent from anywhere.", 14f, Palette.MUTED).apply { setPadding(0, dp(4), 0, dp(28)) })
             addView(primaryButton("Scan to connect") { scan() }, LinearLayout.LayoutParams(-1, dp(52)))
             addView(label("or enter manually", 12f, Palette.FAINT).apply { setPadding(0, dp(28), 0, dp(8)) })

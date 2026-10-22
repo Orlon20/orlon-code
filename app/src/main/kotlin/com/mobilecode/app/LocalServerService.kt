@@ -27,7 +27,7 @@ class LocalServerService : Service() {
         val stop = PendingIntent.getService(this, 0, Intent(this, LocalServerService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
         val open = PendingIntent.getActivity(this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val n: Notification = NotificationCompat.Builder(this, "server")
-            .setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Mobilecode is running")
+            .setSmallIcon(android.R.drawable.stat_sys_download_done).setContentTitle("Orlon Code is running")
             .setContentText("Your coding agent stays available in the background.")
             .setContentIntent(open).addAction(0, "Stop", stop).setOngoing(true).build()
         ServiceCompat.startForeground(this, 1, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)

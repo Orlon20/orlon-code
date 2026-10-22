@@ -34,7 +34,10 @@ class MainActivity : AppCompatActivity() {
     private var pruneThenHome = false
     private lateinit var rootFrame: FrameLayout
     private lateinit var menuBtn: TextView
-    private lateinit var errTitle: TextView
+    private lateinit var brandLabel: WordmarkView
+    private lateinit var topBar: android.widget.LinearLayout
+    private lateinit var rootColumn: android.widget.LinearLayout
+    private lateinit var errTitle: WordmarkView
     private var themeDialog: ThemeDialog? = null
     private var showThemesWhenReady = false
 
@@ -83,7 +86,7 @@ class MainActivity : AppCompatActivity() {
                         v.evaluateJavascript(Branding.PRUNE_DRAFTS_JS) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -109,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         errorView = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setBackgroundColor(Palette.BG); visibility = android.view.View.GONE; setPadding(dp(24), 0, dp(24), 0)
-            errTitle = label("Mobilecode", 24f, bold = true).apply { setPadding(0, 0, 0, dp(16)) }
+            errTitle = wordmark(18).apply { setPadding(0, 0, 0, dp(16)) }
             addView(errTitle)
             addView(errorText)
             retryBtn = primaryButton("Retry") { if (local) restartLocal() else load() }
@@ -118,16 +121,28 @@ class MainActivity : AppCompatActivity() {
             addView(altBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         }
         menuBtn = TextView(this).apply {
-            text = "⋮"; textSize = 20f; setTextColor(Palette.FG); gravity = Gravity.CENTER; alpha = 0.55f
+            text = "⋮"; textSize = 20f; setTextColor(Palette.FG); gravity = Gravity.CENTER; alpha = 0.7f
             setOnClickListener { showMenu(it) }
         }
+        brandLabel = wordmark(11, Palette.FG, 0.7f)
+        // A real bar above the web page (not an overlay), so the menu can never sit on top of OpenCode's tab bar or dialogs.
+        topBar = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), 0, dp(2), 0)
+            addView(brandLabel, android.widget.LinearLayout.LayoutParams(-2, -2))
+            addView(android.view.View(this@MainActivity), android.widget.LinearLayout.LayoutParams(0, 1, 1f))
+            addView(menuBtn, android.widget.LinearLayout.LayoutParams(dp(44), dp(36)))
+        }
         rootFrame = FrameLayout(this).apply {
-            setBackgroundColor(Palette.BG); applySystemInsets()
             addView(web, ViewGroup.LayoutParams(-1, -1))
             addView(errorView, ViewGroup.LayoutParams(-1, -1))
-            addView(menuBtn, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.END))
         }
-        setContentView(rootFrame)
+        rootColumn = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL; setBackgroundColor(Palette.BG); applySystemInsets()
+            addView(topBar, android.widget.LinearLayout.LayoutParams(-1, dp(36)))
+            addView(rootFrame, android.widget.LinearLayout.LayoutParams(-1, 0, 1f))
+        }
+        setContentView(rootColumn)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() } }
         })
@@ -271,8 +286,8 @@ class MainActivity : AppCompatActivity() {
         if (json == "{}" || json == prefs.paletteJson) return
         prefs.paletteJson = json
         applyThemeChrome()
-        rootFrame.setBackgroundColor(Palette.BG); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
-        errorText.setTextColor(Palette.FG); errTitle.setTextColor(Palette.FG); menuBtn.setTextColor(Palette.FG)
+        rootColumn.setBackgroundColor(Palette.BG); rootFrame.setBackgroundColor(Palette.BG); brandLabel.color = Palette.FG; brandLabel.invalidate(); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
+        errorText.setTextColor(Palette.FG); errTitle.color = Palette.FG; errTitle.invalidate(); menuBtn.setTextColor(Palette.FG)
         retryBtn.stylePrimary(); altBtn.styleGhost()
         themeDialog?.restyle()
     }
