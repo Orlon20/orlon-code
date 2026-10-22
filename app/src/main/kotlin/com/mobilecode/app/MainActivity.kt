@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var retryBtn: android.widget.Button
     private lateinit var altBtn: android.widget.Button
     private var starting = false
+    private var pruneThenHome = false
     private val local get() = !prefs.remote
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
@@ -65,7 +66,12 @@ class MainActivity : AppCompatActivity() {
                 }
                 override fun onPageFinished(v: WebView, url: String?) {
                     refresh.isRefreshing = false
-                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null) }
+                    if (pruneThenHome) {
+                        pruneThenHome = false
+                        v.evaluateJavascript(Branding.PRUNE_DRAFTS_JS) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
+                        return
+                    }
+                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -137,10 +143,23 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 starting = false
                 server = s
-                if (res == CheckResult.OK) { failed = false; errorView.visibility = android.view.View.GONE; web.loadUrl(s.url + "/", mapOf("Authorization" to basicAuth(s.password))) }
+                if (res == CheckResult.OK) { failed = false; errorView.visibility = android.view.View.GONE; loadHome() }
                 else showError("Your agent didn't start.\nTap Retry, or see server.log in the app files.")
             }
         }
+    }
+
+    /** Load a tiny same-origin page first so stale draft tabs can be cleared, then open the prompt screen. */
+    private fun loadHome() {
+        val s = server ?: return
+        pruneThenHome = true
+        web.loadUrl(s.url + "/site.webmanifest", mapOf("Authorization" to basicAuth(s.password)))
+    }
+
+    /** On-device mode opens straight onto the prompt box of the default project. */
+    private fun homeUrl(s: Server): String {
+        val dir = android.util.Base64.encodeToString(Sandbox.WORKSPACE.toByteArray(), android.util.Base64.NO_WRAP or android.util.Base64.NO_PADDING or android.util.Base64.URL_SAFE)
+        return "${s.url}/$dir/session"
     }
 
     private fun restartLocal() {
@@ -179,6 +198,7 @@ class MainActivity : AppCompatActivity() {
             menu.add(0, 1, 0, if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
             menu.add(0, 2, 1, "Reload")
             if (local) {
+                menu.add(0, 8, 0, "Preview what was built")
                 menu.add(0, 6, 2, "Restart agent")
                 menu.add(0, 3, 3, "Connect to a PC instead")
             } else {
@@ -190,11 +210,12 @@ class MainActivity : AppCompatActivity() {
             setOnMenuItemClickListener {
                 when (it.itemId) {
                     1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-                    2 -> if (local) web.reload() else load()
+                    2 -> if (local) loadHome() else load()
                     3 -> startActivity(Intent(this@MainActivity, ConnectActivity::class.java))
                     4 -> { store.forget(server!!.url); startActivity(Intent(this@MainActivity, ConnectActivity::class.java)); finish() }
                     5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
                     6 -> restartLocal()
+                    8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
                     7 -> { prefs.remote = false; recreate() }
                 }; true
             }

@@ -52,7 +52,9 @@ object Sandbox {
     fun prepare(p: Paths) {
         File(p.filesDir, "lib").mkdirs(); File(p.filesDir, "tmp").mkdirs()
         val link = File(p.filesDir, "lib/libtalloc.so.2")
-        if (!link.exists()) android.system.Os.symlink("${p.nativeDir}/libtalloc.so", link.absolutePath)
+        // The native lib dir changes on every install/update, so a stale (dangling) link must be replaced.
+        link.delete()
+        android.system.Os.symlink("${p.nativeDir}/libtalloc.so", link.absolutePath)
     }
 
     /** Use the phone's current DNS servers inside the sandbox (falls back to Cloudflare). */

@@ -28,6 +28,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".AboutActivity" android:exported="false" />
+        <activity android:name=".PreviewActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <activity android:name=".SetupActivity" android:exported="false" android:windowSoftInputMode="adjustResize" />
         <service android:name=".LocalServerService" android:exported="false" android:foregroundServiceType="specialUse">
             <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Runs the user's local OpenCode coding-agent server" />
