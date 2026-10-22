@@ -36,7 +36,7 @@ class SandboxTest {
     @Test fun markerIsVersioned() = assertEquals("/files/installed-${Sandbox.OPENCODE_VERSION}", p.marker.path)
 
     @Test fun sha256HexMatchesKnownValue() {
-        val f = File.createTempFile("sb", ".txt").apply { writeText("abc"); deleteOnExit() }
+        val f = File.createTempFile("sbx", ".txt").apply { writeText("abc"); deleteOnExit() }
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", Sandbox.sha256Hex(f))
     }
 
