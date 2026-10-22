@@ -18,5 +18,21 @@ class Prefs(ctx: Context) {
     val localPort: Int get() = sp.getInt("lport", 0).takeIf { it > 0 }
         ?: ServerSocket(0).use { it.localPort }.also { sp.edit().putInt("lport", it).apply() }
 
+    /** Selected OpenCode theme id ("oc-2" is OpenCode's default) and color scheme ("system" | "light" | "dark"). */
+    var themeId: String
+        get() = sp.getString("theme", "oc-2") ?: "oc-2"
+        set(v) { sp.edit().putString("theme", v).apply() }
+    var scheme: String
+        get() = sp.getString("scheme", "system") ?: "system"
+        set(v) { sp.edit().putString("scheme", v).apply() }
+    /** Colors captured from the page's --v2-* variables, so native screens match the chosen theme. */
+    var paletteJson: String
+        get() = sp.getString("palette", "{}") ?: "{}"
+        set(v) { sp.edit().putString("palette", v).apply() }
+    /** Theme list scraped from OpenCode's bundle (cached per OpenCode version). */
+    var themesJson: String
+        get() = if (sp.getString("themesVer", "") == Sandbox.OPENCODE_VERSION) sp.getString("themes", "") ?: "" else ""
+        set(v) { sp.edit().putString("themes", v).putString("themesVer", Sandbox.OPENCODE_VERSION).apply() }
+
     fun localServer() = Server("http://127.0.0.1:$localPort", localPassword)
 }

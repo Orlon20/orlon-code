@@ -10,6 +10,7 @@ Vibecode on your phone. Mobilecode runs [OpenCode](https://opencode.ai) (MIT) **
 ## Using it
 - Projects live in `/root/projects` inside the app's private Linux sandbox.
 - **⋮ → Preview what was built** opens your project as a website (e.g. `index.html`) or any local dev-server port (type `5173`). Review code changes in OpenCode's own **Changes** tab.
+- **Themes:** type `/themes` in the prompt box and send (or **⋮ → Themes**) to pick from OpenCode's 37 themes plus System/Light/Dark. The whole app follows it: OpenCode's UI, setup/error/About screens, menus and system bars.
 - The agent keeps running in the background (a notification shows while it does; tap **Stop** to end it).
 - **⋮ → Connect to a PC instead** lets Mobilecode be a remote client for an OpenCode server on another machine.
 

@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 class AboutActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyThemeChrome()
         setContentView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(Palette.BG); applySystemInsets()

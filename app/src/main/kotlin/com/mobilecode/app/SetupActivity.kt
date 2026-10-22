@@ -21,6 +21,7 @@ class SetupActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyThemeChrome()
         step = label("A one-time download of about 100 MB (about 600 MB installed). Wi-Fi recommended.", 14f, Palette.MUTED)
         bar = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
             max = 100; progressTintList = android.content.res.ColorStateList.valueOf(Palette.ACCENT); visibility = android.view.View.INVISIBLE

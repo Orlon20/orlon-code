@@ -15,6 +15,7 @@ class ConnectActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyThemeChrome()
         store = ServerStore(this)
         val url = field("Server address (https://…)")
         val pw = field("Password", password = true)

@@ -10,8 +10,8 @@ import android.view.Gravity
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.*
+import android.webkit.JavascriptInterface
 import android.widget.FrameLayout
-import android.widget.PopupMenu
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
@@ -32,6 +32,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var altBtn: android.widget.Button
     private var starting = false
     private var pruneThenHome = false
+    private lateinit var rootFrame: FrameLayout
+    private lateinit var menuBtn: TextView
+    private lateinit var errTitle: TextView
+    private var themeDialog: ThemeDialog? = null
+    private var showThemesWhenReady = false
+
+    /** Page -> app calls (only these two; the app never exposes anything else to web content). */
+    private inner class Bridge {
+        @JavascriptInterface fun openThemes() { runOnUiThread { showThemes() } }
+        @JavascriptInterface fun themesData(json: String) { runOnUiThread { onThemesData(json) } }
+    }
     private val local get() = !prefs.remote
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
@@ -42,6 +53,7 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyThemeChrome()
         store = ServerStore(this)
         prefs = Prefs(this)
         if (local) {
@@ -71,7 +83,7 @@ class MainActivity : AppCompatActivity() {
                         v.evaluateJavascript(Branding.PRUNE_DRAFTS_JS) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); if (local) v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -85,6 +97,7 @@ class MainActivity : AppCompatActivity() {
                     startActivity(Intent(Intent.ACTION_VIEW, r.url)); return true
                 }
             }
+            addJavascriptInterface(Bridge(), "MobilecodeBridge")
             webChromeClient = object : WebChromeClient() {
                 override fun onShowFileChooser(w: WebView, cb: ValueCallback<Array<Uri>>, p: FileChooserParams): Boolean {
                     fileCb?.onReceiveValue(null); fileCb = cb
@@ -96,23 +109,25 @@ class MainActivity : AppCompatActivity() {
         errorView = android.widget.LinearLayout(this).apply {
             orientation = android.widget.LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setBackgroundColor(Palette.BG); visibility = android.view.View.GONE; setPadding(dp(24), 0, dp(24), 0)
-            addView(label("Mobilecode", 24f, bold = true).apply { setPadding(0, 0, 0, dp(16)) })
+            errTitle = label("Mobilecode", 24f, bold = true).apply { setPadding(0, 0, 0, dp(16)) }
+            addView(errTitle)
             addView(errorText)
             retryBtn = primaryButton("Retry") { if (local) restartLocal() else load() }
             altBtn = ghostButton(if (local) "Connect to a PC instead" else "Rescan / change server") { startActivity(Intent(this@MainActivity, ConnectActivity::class.java)) }
             addView(retryBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(24) })
             addView(altBtn, android.widget.LinearLayout.LayoutParams(-1, dp(48)).apply { topMargin = dp(8) })
         }
-        val menu = TextView(this).apply {
+        menuBtn = TextView(this).apply {
             text = "⋮"; textSize = 20f; setTextColor(Palette.FG); gravity = Gravity.CENTER; alpha = 0.55f
             setOnClickListener { showMenu(it) }
         }
-        setContentView(FrameLayout(this).apply {
+        rootFrame = FrameLayout(this).apply {
             setBackgroundColor(Palette.BG); applySystemInsets()
             addView(web, ViewGroup.LayoutParams(-1, -1))
             addView(errorView, ViewGroup.LayoutParams(-1, -1))
-            addView(menu, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.END))
-        })
+            addView(menuBtn, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.TOP or Gravity.END))
+        }
+        setContentView(rootFrame)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() { if (web.canGoBack()) web.goBack() else { isEnabled = false; onBackPressedDispatcher.onBackPressed() } }
         })
@@ -194,33 +209,72 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMenu(anchor: android.view.View) {
-        PopupMenu(this, anchor).apply {
-            menu.add(0, 1, 0, if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
-            menu.add(0, 2, 1, "Reload")
-            if (local) {
-                menu.add(0, 8, 0, "Preview what was built")
-                menu.add(0, 6, 2, "Restart agent")
-                menu.add(0, 3, 3, "Connect to a PC instead")
-            } else {
-                menu.add(0, 3, 2, "Switch / add server")
-                menu.add(0, 4, 3, "Forget this server")
-                menu.add(0, 7, 3, "Use on-device agent")
+        val items = mutableListOf<Pair<Int, String>>()
+        items += 1 to (if (keepAwake) "Keep screen awake ✓" else "Keep screen awake")
+        if (local) items += 8 to "Preview what was built"
+        items += 9 to "Themes"
+        items += 2 to "Reload"
+        if (local) { items += 6 to "Restart agent"; items += 3 to "Connect to a PC instead" }
+        else { items += 3 to "Switch / add server"; items += 4 to "Forget this server"; items += 7 to "Use on-device agent" }
+        items += 5 to "About"
+        showMenu(anchor, items) { id ->
+            when (id) {
+                1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+                2 -> if (local) loadHome() else load()
+                3 -> startActivity(Intent(this@MainActivity, ConnectActivity::class.java))
+                4 -> { store.forget(server!!.url); startActivity(Intent(this@MainActivity, ConnectActivity::class.java)); finish() }
+                5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
+                6 -> restartLocal()
+                7 -> { prefs.remote = false; recreate() }
+                8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
+                9 -> showThemes()
             }
-            menu.add(0, 5, 4, "About")
-            setOnMenuItemClickListener {
-                when (it.itemId) {
-                    1 -> { keepAwake = !keepAwake; if (keepAwake) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
-                    2 -> if (local) loadHome() else load()
-                    3 -> startActivity(Intent(this@MainActivity, ConnectActivity::class.java))
-                    4 -> { store.forget(server!!.url); startActivity(Intent(this@MainActivity, ConnectActivity::class.java)); finish() }
-                    5 -> startActivity(Intent(this@MainActivity, AboutActivity::class.java))
-                    6 -> restartLocal()
-                    8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
-                    7 -> { prefs.remote = false; recreate() }
-                }; true
-            }
-            show()
         }
+    }
+
+    // ---- Themes -------------------------------------------------------------------------------
+
+    private fun showThemes() {
+        val themes = parseThemes(prefs.themesJson)
+        if (themes.isEmpty()) {
+            showThemesWhenReady = true
+            web.evaluateJavascript(Branding.THEMES_SCAN_JS, null)
+            return
+        }
+        if (themeDialog?.isShowing == true) return
+        themeDialog = ThemeDialog(this, themes, prefs.themeId, prefs.scheme) { id, scheme -> applyTheme(id, scheme) }
+            .also { it.setOnDismissListener { themeDialog = null }; it.show() }
+    }
+
+    private fun onThemesData(json: String) {
+        if (parseThemes(json).isEmpty()) {
+            showThemesWhenReady = false
+            android.widget.Toast.makeText(this, "Couldn't load themes. Try again once the agent is ready.", android.widget.Toast.LENGTH_SHORT).show()
+            return
+        }
+        prefs.themesJson = json
+        if (showThemesWhenReady) { showThemesWhenReady = false; showThemes() }
+    }
+
+    /** Switches OpenCode's own theme (it reads these keys at startup) and reloads; native screens follow via adoptPalette. */
+    private fun applyTheme(id: String, scheme: String) {
+        prefs.themeId = id; prefs.scheme = scheme
+        val q = { v: String -> "'" + v.replace("\\", "\\\\").replace("'", "\\'") + "'" }
+        web.evaluateJavascript(
+            "localStorage.setItem('opencode-theme-id',${q(id)});localStorage.setItem('opencode-color-scheme',${q(scheme)});" +
+                "localStorage.removeItem('opencode-theme-css-light');localStorage.removeItem('opencode-theme-css-dark');location.reload();", null)
+    }
+
+    /** Takes the colors the page reports for the active theme and restyles the native chrome to match. */
+    private fun adoptPalette(raw: String?) {
+        val json = try { org.json.JSONTokener(raw ?: return).nextValue() as? String ?: return } catch (e: Exception) { return }
+        if (json == "{}" || json == prefs.paletteJson) return
+        prefs.paletteJson = json
+        applyThemeChrome()
+        rootFrame.setBackgroundColor(Palette.BG); web.setBackgroundColor(Palette.BG); errorView.setBackgroundColor(Palette.BG)
+        errorText.setTextColor(Palette.FG); errTitle.setTextColor(Palette.FG); menuBtn.setTextColor(Palette.FG)
+        retryBtn.stylePrimary(); altBtn.styleGhost()
+        themeDialog?.restyle()
     }
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent) }

@@ -112,4 +112,72 @@ object Branding {
   } catch(e) {}
 })();
 """
+
+    /** Typing "/themes" in the prompt and sending opens Mobilecode's theme picker instead of sending it to the agent. */
+    const val SLASH_THEMES_JS = """
+(function(){
+  try {
+    if (window.__mcSlash) return; window.__mcSlash = true;
+    var FORM = 'form[class*="prompt-input"]';
+    function editor(){ return document.querySelector(FORM + ' [contenteditable="true"], ' + FORM + ' textarea'); }
+    function isCmd(){
+      var ed = editor(); if (!ed) return false;
+      var t = (ed.value !== undefined ? ed.value : ed.innerText || '').trim().toLowerCase();
+      return t === '/themes' || t === '/theme';
+    }
+    function clear(){
+      var ed = editor(); if (!ed) return; ed.focus();
+      if (ed.value !== undefined) {
+        var set = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(ed), 'value').set; set.call(ed, ''); ed.dispatchEvent(new Event('input', {bubbles:true}));
+      } else { document.execCommand('selectAll'); document.execCommand('delete'); }
+    }
+    function fire(e){ e.preventDefault(); e.stopPropagation(); e.stopImmediatePropagation(); clear(); if (window.MobilecodeBridge) MobilecodeBridge.openThemes(); }
+    document.addEventListener('keydown', function(e){
+      if ((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey && e.target.closest && e.target.closest(FORM) && isCmd()) fire(e);
+    }, true);
+    document.addEventListener('beforeinput', function(e){
+      if (e.inputType === 'insertParagraph' && e.target.closest && e.target.closest(FORM) && isCmd()) fire(e);
+    }, true);
+    document.addEventListener('click', function(e){
+      var b = e.target.closest && e.target.closest(FORM + ' button[type="submit"]');
+      if (b && isCmd()) fire(e);
+    }, true);
+    document.addEventListener('submit', function(e){ if (isCmd()) fire(e); }, true);
+  } catch(e) {}
+})();
+"""
+
+    /** Scrapes OpenCode's theme catalog (ids, names, light/dark palettes) and reports it to MobilecodeBridge.themesData. */
+    const val THEMES_SCAN_JS = """
+(async function(){
+  try {
+    var src = Array.prototype.map.call(document.scripts, function(s){ return s.src; }).filter(function(s){ return /\/assets\/index-[^/]*\.js/.test(s); })[0];
+    var out = [{id:'oc-2', name:'OC-2', light:{neutral:'#f7f7f7', ink:'#171311', primary:'#dcde8d', accent:'#034cff'}, dark:{neutral:'#080808', ink:'#fafafa', primary:'#a2bcff', accent:'#3b5cf6'}}];
+    if (src) {
+      var txt = await (await fetch(src)).text();
+      var base = new URL(src).origin + '/assets/';
+      var re = /"\.\/themes\/([a-z0-9-]+)\.json":\(\)=>[A-Za-z_$]+\(\(\)=>import\("\.\/([^"]+)"/g, m, files = [];
+      while ((m = re.exec(txt))) files.push([m[1], m[2]]);
+      var mods = await Promise.all(files.map(function(f){ return import(base + f[1]).then(function(mod){
+        return {id:f[0], name:mod.name || f[0], light:mod.light && mod.light.palette, dark:mod.dark && mod.dark.palette};
+      }).catch(function(){ return null; }); }));
+      mods.forEach(function(x){ if (x && x.light && x.dark) out.push(x); });
+    }
+    if (window.MobilecodeBridge) MobilecodeBridge.themesData(JSON.stringify(out));
+  } catch(e) { if (window.MobilecodeBridge) MobilecodeBridge.themesData('[]'); }
+})();
+"""
+
+    /** Reads the active theme's colors (resolved to rgb) from the page so native screens can match. Returns a JSON string. */
+    const val THEME_COLORS_JS = """
+(function(){
+  try {
+    function c(n){ var el = document.createElement('span'); el.style.color = 'var(' + n + ')'; document.body.appendChild(el); var v = getComputedStyle(el).color; el.remove(); return v; }
+    return JSON.stringify({bg:c('--v2-background-bg-deep'), card:c('--v2-background-bg-base'), layer:c('--v2-background-bg-layer-01'),
+      button:c('--v2-background-bg-button-neutral'), border:c('--v2-border-border-base'), fg:c('--v2-text-text-base'),
+      muted:c('--v2-text-text-muted'), faint:c('--v2-text-text-faint'), accent:c('--v2-text-text-accent'),
+      invBg:c('--v2-background-bg-inverse'), invFg:c('--v2-text-text-inverse')});
+  } catch(e) { return '{}'; }
+})()
+"""
 }

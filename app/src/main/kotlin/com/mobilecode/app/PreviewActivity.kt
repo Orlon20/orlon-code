@@ -60,6 +60,7 @@ class PreviewActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        applyThemeChrome()
         val loader = WebViewAssetLoader.Builder().setDomain("appassets.androidplatform.net").addPathHandler("/p/", ProjectFiles()).build()
         if (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) WebView.setWebContentsDebuggingEnabled(true)
         web = WebView(this).apply {
