@@ -1,6 +1,6 @@
 # Third-party notices
 
-Orlon Code's own code is MIT-licensed (see `LICENSE`). It bundles, downloads, or builds on the components below.
+Orlon Code's own code is Apache-2.0-licensed (see `LICENSE`). It bundles, downloads, or builds on the components below.
 Full license texts are in [`licenses/`](licenses/).
 
 ## Shipped inside the APK (and in this repository)

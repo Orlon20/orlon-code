@@ -24,7 +24,7 @@ class AboutActivity : AppCompatActivity() {
             addView(label("Version $version", 13f, Palette.FAINT).apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(10) })
             addView(label("Run the OpenCode coding agent on your phone, and build Android apps with it, without a computer.", 14f, Palette.MUTED)
                 .apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(20) })
-            addView(label("Powered by OpenCode. Orlon Code is an independent, open-source project (MIT) and is not affiliated with OpenCode.", 12f, Palette.FAINT)
+            addView(label("Powered by OpenCode. Orlon Code is an independent, open-source project (Apache-2.0) and is not affiliated with OpenCode.", 12f, Palette.FAINT)
                 .apply { gravity = Gravity.CENTER }, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
             addView(toggle, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(28) })
             addView(licenseText, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })

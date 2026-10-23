@@ -1,5 +1,7 @@
 # Orlon Code
 
+**AI-powered coding, directly from your phone. Standalone, open source, free coding agents.**
+
 **Vibecode on your phone.** Orlon Code runs the [OpenCode](https://opencode.ai) coding agent entirely on an Android phone, with
 no computer, server, or tunnel. Ask for an app, and it writes it, builds a real APK on the phone, and offers to install it.
 
@@ -57,5 +59,5 @@ in a WebView with phone-fit fixes and branding. Small shell tools in the sandbox
 
 ## License
 
-MIT, see [LICENSE](LICENSE). Bundled and downloaded components keep their own licenses: see
+Apache License 2.0, see [LICENSE](LICENSE). Bundled and downloaded components keep their own licenses: see
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) (this includes GPL/LGPL components and how to get their source).

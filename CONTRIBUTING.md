@@ -38,4 +38,4 @@ install, and confirm setup, a prompt, and an app build all work. Do not add down
 
 Please do not file public issues for vulnerabilities; see `SECURITY.md`.
 
-By contributing you agree that your contribution is licensed under the MIT License (see `LICENSE`).
+By contributing you agree that your contribution is licensed under the Apache License 2.0 (see `LICENSE`).

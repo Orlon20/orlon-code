@@ -1,4 +1,4 @@
-Orlon Code is open source under the MIT License.
+Orlon Code is open source under the Apache License 2.0.
 
 It runs the OpenCode coding agent (MIT License, https://opencode.ai). Orlon Code is an independent project and is not affiliated with OpenCode.
 
