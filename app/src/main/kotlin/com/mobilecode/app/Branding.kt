@@ -192,29 +192,73 @@ object Branding {
 })();
 """
 
-    /** Settings > Add AI provider: opens the model picker and un-hides OpenCode's "add more providers" entry (hidden there to keep the list clean). */
+    /**
+     * Settings > Add AI provider: opens the model picker, then turns it into a clean "Add AI provider" screen by hiding the model list
+     * and restyling OpenCode's provider choices (the block hidden elsewhere to keep the model list tidy). Undoes itself when the dialog changes.
+     */
     const val ADD_PROVIDER_JS = """
 (function(){
   try {
+    var TITLE = 'Add AI provider';
     window.__mcAllowProv = true;
-    setTimeout(function(){ window.__mcAllowProv = false; }, 120000);
     var btn = document.querySelector('[data-action="prompt-model"]');
     if (!btn) { window.__mcAllowProv = false; return 'nomodel'; }
-    btn.click();
-    var tries = 0;
-    var t = setInterval(function(){
-      tries++;
+    var st = document.getElementById('mc-prov-style');
+    if (!st) {
+      st = document.createElement('style'); st.id = 'mc-prov-style';
+      st.textContent =
+        '[data-mc-hide]{display:none!important}' +
+        '[data-slot="dialog-content"] :focus,[data-slot="dialog-content"] :focus-visible{outline:none!important;box-shadow:none!important}' +
+        '[data-mc-provbox]{background:transparent!important;border:0!important;padding:0!important;gap:0!important}' +
+        '[data-mc-provbox] > div:first-child{display:none!important}' +
+        '[data-mc-provbox] .grid{grid-template-columns:1fr!important;gap:10px!important;padding:6px 0 10px}' +
+        '[data-mc-provbox] button{background:#000!important;border:1px solid rgba(255,255,255,.16)!important;border-radius:12px!important;min-height:58px!important;padding:12px 14px!important;align-items:center!important;gap:12px!important}' +
+        '[data-mc-provbox] button:active{background:rgba(255,255,255,.08)!important}' +
+        '[data-mc-provbox] svg[data-component="provider-icon"]{width:22px!important;height:22px!important;margin:0!important;opacity:1!important}' +
+        '[data-mc-provbox] button > span{gap:2px}' +
+        '[data-mc-provbox] button > span > span:first-child{font-size:15px!important;line-height:20px!important}' +
+        '[data-mc-provbox] button > span > span:last-child:not(:first-child){font-size:12.5px!important;white-space:normal!important}';
+      document.head.appendChild(st);
+    }
+    var titleEl = null, oldTitle = null, hidden = [];
+    function end(){
+      hidden.forEach(function(x){ x.removeAttribute('data-mc-hide'); }); hidden = [];
+      document.querySelectorAll('[data-mc-provbox]').forEach(function(x){ x.removeAttribute('data-mc-provbox'); });
+      if (titleEl && oldTitle !== null && titleEl.textContent === TITLE) titleEl.textContent = oldTitle;
+      window.__mcAllowProv = false; if (obs) obs.disconnect();
+    }
+    var obs = null, started = false;
+    function findBox(){
       var hit = null;
       document.querySelectorAll('[data-slot="dialog-body"] div, [data-component="dialog-body"] div').forEach(function(e){
         if (e.children.length === 0 && e.textContent.trim() === 'Add more models from popular providers') hit = e;
       });
-      if (hit) {
-        clearInterval(t);
-        var box = hit.parentElement && hit.parentElement.parentElement;
-        if (box) box.style.display = '';
-        hit.click();
-      } else if (tries > 40) { clearInterval(t); window.__mcAllowProv = false; }
-    }, 150);
+      return hit && hit.parentElement && hit.parentElement.parentElement;
+    }
+    function begin(box){
+      started = true;
+      box.style.display = ''; box.setAttribute('data-mc-provbox', '1');
+      var body = box.closest('[data-slot="dialog-body"], [data-component="dialog-body"]'), n = box;
+      while (n && n !== body) {
+        if (n.parentElement) Array.prototype.forEach.call(n.parentElement.children, function(c){ if (c !== n && c.tagName !== 'STYLE') { c.setAttribute('data-mc-hide', '1'); hidden.push(c); } });
+        n = n.parentElement;
+      }
+      document.querySelectorAll('div,h1,h2,h3,span').forEach(function(e){
+        if (!titleEl && e.children.length === 0 && e.textContent.trim() === 'Select model') { titleEl = e; oldTitle = e.textContent; e.textContent = TITLE; }
+      });
+      obs = new MutationObserver(function(){
+        if (!document.querySelector('[data-mc-provbox]') || !document.body.contains(box)) end();
+      });
+      obs.observe(document.body, {childList:true, subtree:true});
+    }
+    btn.click();
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      var box = findBox();
+      if (box && !started) { clearInterval(t); begin(box); }
+      else if (tries > 40) { clearInterval(t); if (!started) end(); }
+    }, 120);
     return 'ok';
   } catch(e) { return 'err'; }
 })();
