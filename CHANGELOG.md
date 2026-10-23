@@ -7,4 +7,5 @@
   signed debug/release APKs, tap-to-install links in the chat, install banner/notification.
 - Themes: `/themes` and Settings > Themes (all OpenCode themes + light/dark); native screens follow the theme.
 - Preview what was built (project files as a website, or any local dev-server port).
+- AMOLED black default theme; white home wordmark; model logos (models.dev) in the prompt toolbar and model picker.
 - Phone-fit fixes for OpenCode's UI (prompt toolbar, long commands), branded loading screen, cleaner setup screen.

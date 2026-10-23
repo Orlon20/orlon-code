@@ -128,6 +128,67 @@ object Branding {
 })();
 """
 
+    /** Replaces the model icons with the real logo of the lab that made the model (fetched from models.dev, cached). Never throws. */
+    const val MODEL_ICONS_JS = """
+(function(){
+  try {
+    if (window.__mcLogos) return; window.__mcLogos = true;
+    var RULES = [[/deepseek/, 'deepseek'], [/glm|z\.ai|zhipu/, 'zai'], [/nemotron|nvidia/, 'nvidia'], [/mimo|xiaomi/, 'xiaomi'],
+      [/kimi|moonshot/, 'moonshotai'], [/qwen|alibaba/, 'alibaba'], [/minimax/, 'minimax'], [/\bgpt|codex|\bo[134]\b|openai/, 'openai'],
+      [/claude|anthropic/, 'anthropic'], [/gemini|gemma|google/, 'google'], [/llama|meta\b/, 'meta'], [/mistral|codestral|devstral/, 'mistral'],
+      [/grok|xai/, 'xai']];
+    var cache = {}, pending = {};
+    function lab(text){ text = text.toLowerCase(); for (var i = 0; i < RULES.length; i++) if (RULES[i][0].test(text)) return RULES[i][1]; return null; }
+    function get(id, cb){
+      if (cache[id]) return cb(cache[id]);
+      try { var s = localStorage.getItem('mc-logo-' + id); if (s) { cache[id] = JSON.parse(s); return cb(cache[id]); } } catch(e) {}
+      if (pending[id]) { pending[id].push(cb); return; }
+      pending[id] = [cb];
+      fetch('https://models.dev/logos/' + id + '.svg').then(function(r){ return r.ok ? r.text() : Promise.reject(); }).then(function(t){
+        var d = new DOMParser().parseFromString(t, 'image/svg+xml').documentElement;
+        if (!d || d.nodeName !== 'svg') return;
+        d.querySelectorAll('script,foreignObject').forEach(function(x){ x.remove(); });
+        var v = { vb: d.getAttribute('viewBox') || '0 0 24 24', html: d.innerHTML };
+        cache[id] = v; try { localStorage.setItem('mc-logo-' + id, JSON.stringify(v)); } catch(e) {}
+        (pending[id] || []).forEach(function(f){ f(v); }); delete pending[id];
+      }).catch(function(){ delete pending[id]; });
+    }
+    function run(){
+      document.querySelectorAll('svg[data-component="provider-icon"]').forEach(function(s){
+        var row = s.closest('button, [role="option"], [role="menuitem"], li, [data-slot*="item"]') || s.parentElement;
+        var id = row ? lab(row.textContent || '') : null;
+        if (!id || s.getAttribute('data-mc-lab') === id) return;
+        s.setAttribute('data-mc-lab', id);
+        get(id, function(v){
+          if (s.getAttribute('data-mc-lab') !== id) return;
+          s.setAttribute('viewBox', v.vb); s.setAttribute('fill', 'currentColor'); s.innerHTML = v.html;
+        });
+      });
+    }
+    var css = document.createElement('style');
+    css.textContent = 'svg[data-component="provider-icon"]{opacity:1!important}';
+    document.head.appendChild(css);
+    function rows(){
+      document.querySelectorAll('[data-slot="dialog-body"] button').forEach(function(btn){
+        var name = btn.querySelector('span.truncate'); if (!name || btn.getAttribute('data-mc-row') === name.textContent) return;
+        var id = lab(name.textContent || '');
+        btn.setAttribute('data-mc-row', name.textContent);
+        var old = btn.querySelector('[data-mc-ico]'); if (old) old.remove();
+        var box = document.createElement('span'); box.setAttribute('data-mc-ico', '1');
+        box.style.cssText = 'display:inline-flex;width:16px;height:16px;flex:none;align-items:center;justify-content:center';
+        btn.insertBefore(box, btn.firstChild);
+        if (!id) return;
+        get(id, function(v){ box.innerHTML = '<svg width="16" height="16" viewBox="' + v.vb + '" fill="currentColor">' + v.html + '</svg>'; });
+      });
+    }
+    run(); rows();
+    var pend = false;
+    new MutationObserver(function(){ if (pend) return; pend = true; requestAnimationFrame(function(){ pend = false; run(); rows(); }); })
+      .observe(document.documentElement, {childList:true, subtree:true});
+  } catch(e) {}
+})();
+"""
+
     /** Phone-width fixes for OpenCode's UI (all modes): keep the prompt toolbar and long lines inside the screen. */
     const val FIT_JS = """
 (function(){

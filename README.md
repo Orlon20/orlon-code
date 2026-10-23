@@ -6,6 +6,7 @@ no computer, server, or tunnel. Ask for an app, and it writes it, builds a real 
 - **Everything on the phone.** The agent and its Linux sandbox live in the app's private storage. Only the AI model is remote.
 - **Builds Android apps.** JDK 17 + Android SDK 36 install themselves on the first build; Gradle, `aapt2` and signing all run locally.
 - **Tap to install.** When an APK is ready you get an install banner (or a notification); APK paths in the chat are tappable.
+- **AMOLED black by default.** Pure-black surfaces; the model picker shows each model maker's real logo (fetched from [models.dev](https://models.dev)).
 - **Themes.** `/themes` (or Settings > Themes) switches between all of OpenCode's themes; the whole app follows.
 - **Preview.** Settings > Preview what was built shows web projects (or any local dev-server port).
 - **Free models included.** OpenCode's free models work out of the box; add your own providers in OpenCode's settings.
@@ -20,7 +21,7 @@ Gradle caches take roughly 3 GB), and an internet connection.
 ## Install
 
 Download the APK from the project's Releases page and open it (allow "install unknown apps" for your browser or file
-manager). On first launch tap **Set up Orlon Code**; it downloads about 100 MB once.
+manager). On first launch tap **Get Started**; it downloads about 100 MB once.
 
 Build from source instead:
 
