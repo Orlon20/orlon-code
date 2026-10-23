@@ -136,7 +136,7 @@ object Branding {
     var st = document.createElement('style'); st.id = 'mc-fit';
     var bar = 'form[class*="prompt-input"] div[class*="min-w-0"][class*="flex-1"][class*="items-center"]';
     st.textContent =
-      bar + '{overflow:hidden}' + bar + ' > *{min-width:0;flex-shrink:1}' + bar + ' button{min-width:0;max-width:100%}' +
+      bar + '{flex-wrap:wrap!important;overflow:visible!important;row-gap:4px}' + bar + ' > *{min-width:0;flex-shrink:0;max-width:100%}' + bar + ' button{min-width:0;max-width:100%}' +
       'html,body{overflow-x:hidden;max-width:100vw}' +
       '[data-slot=basic-tool-tool-subtitle]{display:-webkit-box!important;-webkit-box-orient:vertical!important;-webkit-line-clamp:3!important;overflow:hidden!important;text-overflow:ellipsis!important;white-space:normal!important;overflow-wrap:anywhere!important;max-width:100%!important;height:auto!important}' +
       '[data-slot=shell-submessage-width],[data-component=shell-submessage],[data-slot=shell-submessage-value]{white-space:normal!important;overflow:hidden!important;text-overflow:ellipsis!important;overflow-wrap:anywhere!important;max-width:100%!important;height:auto!important}' +
@@ -146,6 +146,24 @@ object Branding {
       '[data-slot=basic-tool-tool-trigger-content],[data-component=tool-trigger],[data-slot=collapsible-trigger],[data-component=collapsible-trigger],[data-slot=basic-tool-tool-info],[data-component=basic-tool-tool-info]{height:auto!important;min-height:32px;max-height:none!important}' +
       'pre.shiki{white-space:pre-wrap!important;overflow-wrap:anywhere!important;overflow-x:hidden!important}';
     document.head.appendChild(st);
+    function grow(){
+      document.querySelectorAll(bar).forEach(function(x){
+        var f = x.closest('form'), n = x.parentElement;
+        while (n && n !== f) { n.style.setProperty('height', 'auto', 'important'); n.style.setProperty('max-height', 'none', 'important'); n.style.setProperty('overflow', 'visible', 'important'); n = n.parentElement; }
+        if (f) { f.style.setProperty('height', 'auto', 'important'); f.style.setProperty('max-height', 'none', 'important'); }
+      });
+    }
+    function iconOnly(){
+      document.querySelectorAll(bar + ' button').forEach(function(btn){
+        if (btn.querySelectorAll('svg, img').length < 2) return;
+        btn.querySelectorAll('*').forEach(function(e){
+          if (e.children.length === 0 && e.tagName !== 'svg' && e.tagName !== 'path' && e.tagName !== 'IMG' && e.textContent.trim()) e.style.setProperty('display', 'none', 'important');
+        });
+      });
+    }
+    function both(){ grow(); iconOnly(); }
+    both();
+    new MutationObserver(both).observe(document.documentElement, {childList:true, subtree:true});
   } catch(e) {}
 })();
 """
