@@ -26,7 +26,7 @@ class ThemingTest {
         Palette.apply("""{"bg":"#ffffff","fg":"#111111","card":""}""")
         assertEquals(0xFFFFFFFF.toInt(), Palette.BG); assertEquals(0xFF111111.toInt(), Palette.FG)
         assertEquals(Palette.DEFAULT_CARD, Palette.CARD)
-        Palette.reset(); assertEquals(0xFF080808.toInt(), Palette.BG)
+        Palette.reset(); assertEquals(0xFF000000.toInt(), Palette.BG)
     }
 
     @Test fun parseThemesReadsSwatches() {

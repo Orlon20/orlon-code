@@ -84,6 +84,44 @@ object Branding {
 })()
 """
 
+    /** Default theme only: pushes OpenCode's near-black backgrounds to pure black (AMOLED). Other themes are left alone. */
+    const val AMOLED_JS = """
+(function(){
+  try {
+    var id = localStorage.getItem('opencode-theme-id');
+    if (id && id !== 'oc-2') return;
+    var root = document.documentElement, names = {};
+    function walk(rules){
+      for (var j = 0; j < rules.length; j++) {
+        var r = rules[j];
+        if (r.cssRules) walk(r.cssRules);
+        var st = r.style; if (!st) continue;
+        for (var k = 0; k < st.length; k++) if (st[k].indexOf('--v2-background-') === 0) names[st[k]] = 1;
+      }
+    }
+    for (var i = 0; i < document.styleSheets.length; i++) { try { walk(document.styleSheets[i].cssRules); } catch(e) {} }
+    var probe = document.createElement('span'); document.body.appendChild(probe);
+    Object.keys(names).forEach(function(n){
+      probe.style.color = 'var(' + n + ')';
+      var m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(getComputedStyle(probe).color);
+      if (m && Math.max(+m[1], +m[2], +m[3]) <= 18) root.style.setProperty(n, '#000');
+    });
+    probe.remove();
+    var cssEl = document.createElement('style');
+    cssEl.textContent = '[data-slot="dialog-content"],[data-component="dialog"] [data-slot="dialog-content"],[data-slot="dialog-body"]{background:#000!important}' +
+      '[data-slot="dialog-content"]{border:1px solid rgba(255,255,255,.14)!important}';
+    document.head.appendChild(cssEl);
+    function hideHeading(){
+      document.querySelectorAll('[data-slot="dialog-body"] *').forEach(function(e){
+        if (e.children.length === 0 && /^Free models provided by OpenCode\.?$/.test(e.textContent.trim())) e.style.display = 'none';
+      });
+    }
+    hideHeading();
+    new MutationObserver(hideHeading).observe(document.documentElement, {childList:true, subtree:true});
+  } catch(e) {}
+})();
+"""
+
     /** Phone-width fixes for OpenCode's UI (all modes): keep the prompt toolbar and long lines inside the screen. */
     const val FIT_JS = """
 (function(){
@@ -122,9 +160,7 @@ object Branding {
       } catch(e) {}
     }
     run();
-    var pending = false;
-    new MutationObserver(function(){ if (pending) return; pending = true; setTimeout(function(){ pending = false; run(); }, 100); })
-      .observe(document.documentElement, {childList:true, subtree:true});
+    new MutationObserver(run).observe(document.documentElement, {childList:true, subtree:true});
   } catch(e) {}
 })();
 """
@@ -216,6 +252,8 @@ object Branding {
         paths[0].setAttribute('d', D);
         s.querySelectorAll('mask, mask rect').forEach(function(m){ m.setAttribute('width', W); m.setAttribute('height', H); });
         s.querySelectorAll('linearGradient').forEach(function(g){ g.setAttribute('x1', W/2); g.setAttribute('x2', W/2); g.setAttribute('y1', H*0.53); g.setAttribute('y2', H); });
+        s.querySelectorAll('[mask]').forEach(function(m){ m.removeAttribute('mask'); });
+        s.style.cssText += ';color:#fff!important;opacity:1!important'; s.querySelectorAll('*').forEach(function(n){ n.style.setProperty('fill', '#fff', 'important'); n.style.setProperty('opacity', '1', 'important'); }); paths[0].setAttribute('fill', 'currentColor'); paths[0].style.fill = 'currentColor';
         s.setAttribute('data-oc', '1');
       });
     }
