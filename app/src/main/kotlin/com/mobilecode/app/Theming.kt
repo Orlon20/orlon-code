@@ -65,7 +65,7 @@ fun parseThemes(json: String): List<ThemeInfo> = try {
 
 /** Live native palette. Starts as OpenCode's default dark tokens and follows the selected OpenCode theme. */
 object Palette {
-    const val DEFAULT_BG = 0xFF000000.toInt(); const val DEFAULT_CARD = 0xFF111111.toInt(); const val DEFAULT_LAYER = 0xFF242424.toInt()
+    const val DEFAULT_BG = 0xFF000000.toInt(); const val DEFAULT_CARD = 0xFF0D0D0D.toInt(); const val DEFAULT_LAYER = 0xFF1A1A1A.toInt()
     var BG = DEFAULT_BG; var CARD = DEFAULT_CARD; var LAYER = DEFAULT_LAYER
     var BUTTON = 0x0FFFFFFF; var BORDER = 0x1AFFFFFF
     var FG = 0xFFFAFAFA.toInt(); var MUTED = 0xFFAEAEAE.toInt(); var FAINT = 0xFF808080.toInt(); var ACCENT = 0xFFA2BCFF.toInt()

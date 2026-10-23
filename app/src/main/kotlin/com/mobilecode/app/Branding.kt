@@ -103,8 +103,10 @@ object Branding {
     var probe = document.createElement('span'); document.body.appendChild(probe);
     Object.keys(names).forEach(function(n){
       probe.style.color = 'var(' + n + ')';
-      var m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(getComputedStyle(probe).color);
-      if (m && Math.max(+m[1], +m[2], +m[3]) <= 18) root.style.setProperty(n, '#000');
+      var m = /^rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)\s*(?:[,\/]\s*([\d.]+))?\s*\)$/.exec(getComputedStyle(probe).color);
+      if (!m || (m[4] !== undefined && +m[4] < 1)) return;
+      var mx = Math.max(+m[1], +m[2], +m[3]), v = mx <= 18 ? 0 : mx <= 30 ? 13 : mx <= 45 ? 26 : -1;
+      if (v >= 0) root.style.setProperty(n, 'rgb(' + v + ',' + v + ',' + v + ')');
     });
     probe.remove();
     var cssEl = document.createElement('style');
@@ -113,7 +115,11 @@ object Branding {
     document.head.appendChild(cssEl);
     function hideHeading(){
       document.querySelectorAll('[data-slot="dialog-body"] *').forEach(function(e){
-        if (e.children.length === 0 && /^Free models provided by OpenCode\.?$/.test(e.textContent.trim())) e.style.display = 'none';
+        if (e.children.length === 0 && /^Free models provided by OpenCode\.?$/.test(e.textContent.trim())) {
+          var h = e, body = e.closest('[data-slot="dialog-body"]');
+          while (h.parentElement && h.parentElement !== body && h.parentElement.children.length === 1) h = h.parentElement;
+          h.style.display = 'none'; if (h.parentElement) h.parentElement.style.setProperty('gap', '0', 'important');
+        }
       });
     }
     hideHeading();
