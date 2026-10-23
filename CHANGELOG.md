@@ -9,6 +9,7 @@
 - **More model logos** (OpenAI, Anthropic, Google, Meta, Mistral, xAI, and more), bundled so they also work offline.
 - AMOLED black default, white home wordmark, icon-only model button and a toolbar that wraps instead of clipping.
 - License: Apache-2.0.
+- README: describes the general-purpose Linux sandbox (any language), not only Android builds.
 
 ## 1.1
 - Renamed to **Orlon Code**; new pixel wordmark and launcher icon.

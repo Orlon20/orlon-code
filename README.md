@@ -2,10 +2,12 @@
 
 **AI-powered coding, directly from your phone. Standalone, open source, free coding agents.**
 
-**Vibecode on your phone.** Orlon Code runs the [OpenCode](https://opencode.ai) coding agent entirely on an Android phone, with
-no computer, server, or tunnel. Ask for an app, and it writes it, builds a real APK on the phone, and offers to install it.
+**Vibecode on your phone.** Orlon Code runs the [OpenCode](https://opencode.ai) coding agent and a full Linux sandbox entirely on an
+Android phone, with no computer, server, or tunnel. Ask for a website, a script, or an app: it writes the code, runs it, and for
+Android apps builds a real APK on the phone and offers to install it.
 
 - **Everything on the phone.** The agent and its Linux sandbox live in the app's private storage. Only the AI model is remote.
+- **Any language.** The sandbox is a real Linux shell (bash, git, ripgrep). The agent installs what it needs with `apk`, such as Python or Node, and runs it right there.
 - **Builds Android apps.** JDK 17 + Android SDK 36 install themselves on the first build; Gradle, `aapt2` and signing all run locally.
 - **Tap to install.** When an APK is ready you get an install banner (or a notification); APK paths in the chat are tappable.
 - **AMOLED black by default.** Pure-black surfaces; the model picker shows each model maker's real logo (fetched from [models.dev](https://models.dev)).
@@ -43,8 +45,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for tests, signing a release, and develop
 ## Using it
 
 1. Open the app; you land on the prompt box. Pick a model if you like.
-2. Ask for something: *"Make a tip calculator Android app and build the APK."* The first build installs the build tools by
-   itself (about 750 MB, a few minutes).
+2. Ask for something: *"Make a tip calculator Android app and build the APK."* or *"Install python3 and write a script that..."*.
+   The first Android build installs the build tools by itself (about 750 MB, a few minutes).
 3. When the build finishes, tap **Install** on the banner, or tap the APK path in the chat.
 
 Projects live in the sandbox at `/root/projects`. Release builds are signed with a key created on the phone; keep the app
@@ -83,7 +85,7 @@ Ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 - arm64 phones only. Models run in the cloud, so you need a connection to prompt.
 - The first build of each project downloads its libraries; very large projects may not fit in memory.
-- Android builds only for now (no NDK/CMake). Private Git repositories are not supported.
+- App builds are Android only for now (no NDK/CMake). Private Git repositories are not supported.
 - The app styles OpenCode's web interface by injecting small scripts, so a large OpenCode redesign may need updates here.
 
 ## License
