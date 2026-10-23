@@ -38,3 +38,9 @@ OpenCode is a project of its own authors. Orlon Code is an independent app that 
 shows its web interface; it is **not affiliated with or endorsed by** the OpenCode project. The "orloncode" pixel wordmark
 reuses OpenCode's letter-grid style for five of its letters out of respect for the look of the project it wraps; replace it
 if you fork and want a distinct identity (see `Wordmark.kt`).
+
+## Brand logos
+
+`app/src/main/assets/logos/*.svg` are the logos of AI model makers and providers, taken from [models.dev](https://models.dev) (MIT),
+and are shown only to identify each model. They are trademarks of their respective owners and are not covered by this project's
+license; no endorsement is implied.

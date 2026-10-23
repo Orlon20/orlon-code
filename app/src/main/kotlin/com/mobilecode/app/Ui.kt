@@ -83,3 +83,23 @@ fun Context.showMenu(anchor: View, items: List<Pair<Int, String>>, onPick: (Int)
 
 /** A rounded surface with a hairline border, in the current theme. */
 fun Context.cardBg() = GradientDrawable().apply { setColor(Palette.CARD); cornerRadius = dp(12).toFloat(); setStroke(dp(1), Palette.BORDER) }
+
+/** A small dialog in the current theme with one main action and a cancel. */
+fun Activity.simpleDialog(title: String, message: String, ok: String, cancel: String, onOk: () -> Unit) {
+    val d = android.app.Dialog(this)
+    d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE)
+    val col = android.widget.LinearLayout(this).apply {
+        orientation = android.widget.LinearLayout.VERTICAL; background = cardBg(); setPadding(dp(20), dp(20), dp(20), dp(16))
+        addView(label(title, 18f, bold = true))
+        addView(label(message, 14f, Palette.MUTED).apply { setPadding(0, dp(10), 0, dp(18)) })
+        addView(android.widget.LinearLayout(this@simpleDialog).apply {
+            gravity = android.view.Gravity.END
+            addView(ghostButton(cancel) { d.dismiss() }, android.widget.LinearLayout.LayoutParams(-2, dp(44)).apply { rightMargin = dp(8) })
+            addView(primaryButton(ok) { d.dismiss(); onOk() }, android.widget.LinearLayout.LayoutParams(-2, dp(44)))
+        })
+    }
+    d.setContentView(col)
+    d.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(0))
+    d.window?.setLayout((resources.displayMetrics.widthPixels * 0.9).toInt(), android.view.WindowManager.LayoutParams.WRAP_CONTENT)
+    d.show()
+}

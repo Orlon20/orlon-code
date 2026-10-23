@@ -18,3 +18,8 @@ acknowledgement, and fixes are released as soon as practical.
   apps' data or the phone's shared storage. It can use the network.
 - Release APKs built on the phone are signed with a key generated on the phone and stored in the app's private storage.
   If you uninstall the app, that key is lost.
+
+## Backups
+
+A backup made with Settings > Back up projects and key contains your signing key and its password. Store it like a password; anyone
+who has it can sign apps as you. It does not contain your AI provider keys.

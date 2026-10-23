@@ -11,7 +11,14 @@ no computer, server, or tunnel. Ask for an app, and it writes it, builds a real 
 - **AMOLED black by default.** Pure-black surfaces; the model picker shows each model maker's real logo (fetched from [models.dev](https://models.dev)).
 - **Themes.** `/themes` (or Settings > Themes) switches between all of OpenCode's themes; the whole app follows.
 - **Preview.** Settings > Preview what was built shows web projects (or any local dev-server port).
-- **Free models included.** OpenCode's free models work out of the box; add your own providers in OpenCode's settings.
+- **Free models included.** OpenCode's free models work out of the box; Settings > Add AI provider connects your own API keys.
+- **Your work is yours.** Settings > Back up projects and key saves one zip; the projects folder also shows up in Android's Files app.
+
+<p align="center">
+  <img src="docs/img/home.png" width="220" alt="Home screen" />
+  <img src="docs/img/models.png" width="220" alt="Model picker with model-maker logos" />
+  <img src="docs/img/menu.png" width="220" alt="Settings menu" />
+</p>
 
 > Orlon Code is an independent project and is not affiliated with the OpenCode project.
 
@@ -49,6 +56,28 @@ installed (or you lose the key) if you need to publish updates under the same si
 runs inside it as a local web server on `127.0.0.1` protected by a random per-install password. The app shows OpenCode's web UI
 in a WebView with phone-fit fixes and branding. Small shell tools in the sandbox (`orlon-new-android`, `orlon-build`,
 `orlon-toolchain`) give the agent a one-command path from idea to APK. Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Releases and signing
+
+Release APKs are signed with one key. Check that an APK is genuine: its certificate SHA-256 should be
+
+```
+19:31:50:d1:4d:cc:78:13:30:b3:79:97:57:3e:e6:bc:9f:ec:3c:c7:8b:c1:e2:d3:a5:0c:33:ab:fe:69:9e:f2
+```
+
+(`apksigner verify --print-certs OrlonCode.apk`). Each release also lists the file's SHA-256 in its notes.
+
+## Known issues
+
+- Models from makers without a bundled logo show no icon in the picker.
+- The first build still downloads about 750 MB if you skipped the background preparation or were on mobile data.
+- If Android stops the app while it is in the background, a build in progress is lost; allow background activity when asked.
+- A backup does not include your AI provider keys; connect them again after restoring on a new phone.
+
+## Roadmap
+
+Private Git repositories, NDK/CMake builds, a built-in file browser and editor, and an x86_64/armeabi build for emulators.
+Ideas and pull requests are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Limitations
 

@@ -94,9 +94,23 @@ install() {
   status
 }
 
+# One install at a time (a background prefetch and a build may both ask); the second waits for the first.
+install_locked() {
+  LOCK=/tmp/orlon-toolchain.lock
+  while ! mkdir "$LOCK" 2>/dev/null; do
+    pid=$(cat "$LOCK/pid" 2>/dev/null)
+    if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then rm -rf "$LOCK"; continue; fi
+    sleep 3
+    if status >/dev/null 2>&1; then echo "ORLON_TOOLCHAIN ready"; return 0; fi
+  done
+  echo $$ > "$LOCK/pid"
+  trap 'rm -rf "$LOCK"' EXIT
+  install
+}
+
 case "$1" in
   status) status ;;
-  install) install ;;
+  install) install_locked ;;
   fixup) fixup ;;
   defaults) write_gradle_defaults ;;
   clean-cache) rm -rf /root/.gradle/caches /root/.gradle/daemon /root/.gradle/wrapper/dists; echo "Gradle caches removed." ;;

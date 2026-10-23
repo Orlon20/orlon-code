@@ -19,3 +19,5 @@ DOWNLOADED ON YOUR PHONE WHEN YOU USE THE APP (each verified by checksum)
 - Gradle and the libraries of the projects you build (Apache-2.0 and others)
 
 Full license texts and source links are in the project's THIRD_PARTY_NOTICES.md and licenses folder.
+
+Model and provider logos (assets/logos) come from models.dev (MIT) and are trademarks of their owners, shown only to identify models.

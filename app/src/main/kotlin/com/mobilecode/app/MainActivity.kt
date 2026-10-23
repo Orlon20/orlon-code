@@ -72,6 +72,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+    private val backupOut = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/zip")) { uri -> if (uri != null) runBackup(uri) }
+    private val restoreIn = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri -> if (uri != null) confirmRestore(uri) }
     private val notifPerm = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { }
 
     private val picker = registerForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) {
@@ -106,7 +108,7 @@ class MainActivity : AppCompatActivity() {
                         v.evaluateJavascript(Branding.prepStateJs(Sandbox.WORKSPACE)) { v.loadUrl(homeUrl(server!!), mapOf("Authorization" to basicAuth(server!!.password))) }
                         return
                     }
-                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.AMOLED_JS, null); v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Branding.MODEL_ICONS_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.evaluateJavascript(Branding.APK_LINKS_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); v.evaluateJavascript(Branding.CLEAN_JS, null) }
+                    if (!failed) { if (loadingVisible) awaitPromptThenHide() else errorView.visibility = android.view.View.GONE; v.evaluateJavascript(Branding.AMOLED_JS, null); v.evaluateJavascript(Branding.SWAP_JS, null); v.evaluateJavascript(Logos.seedJs(this@MainActivity), null); v.evaluateJavascript(Branding.MODEL_ICONS_JS, null); v.evaluateJavascript(Branding.logoSwapJs(), null); v.evaluateJavascript(Branding.FIT_JS, null); v.evaluateJavascript(Branding.NO_PROVIDER_BLOCK_JS, null); v.evaluateJavascript(Branding.SLASH_THEMES_JS, null); v.evaluateJavascript(Branding.APK_LINKS_JS, null); v.postDelayed({ v.evaluateJavascript(Branding.THEME_COLORS_JS) { raw -> adoptPalette(raw) } }, 700); v.evaluateJavascript(Branding.CLEAN_JS, null) }
                 }
                 override fun onReceivedError(v: WebView, r: WebResourceRequest, e: WebResourceError) {
                     if (r.isForMainFrame) showError(unreachableMsg())
@@ -289,7 +291,7 @@ class MainActivity : AppCompatActivity() {
             "if(!labels.length)return 'no';return labels.some(function(t){return /Select model/i.test(t)})?'model':'ok'})()"
         web.evaluateJavascript(js) { r ->
             val ready = r == "\"ok\"" || (r == "\"model\"" && attempt > 40) || attempt > 66
-            if (ready) { awaitingReady = false; injectDraft(); hideLoading() }
+            if (ready) { awaitingReady = false; injectDraft(); hideLoading(); web.postDelayed({ maybeAskBattery() }, 1500) }
             else web.postDelayed({ awaitingReady = false; awaitPromptThenHide(attempt + 1) }, 150)
         }
     }
@@ -304,6 +306,10 @@ class MainActivity : AppCompatActivity() {
         val items = listOf(
             8 to "Preview what was built",
             9 to "Themes",
+            10 to "Add AI provider",
+            11 to "Back up projects and key",
+            12 to "Restore a backup",
+            13 to "Prepare build tools now",
             2 to "Reload",
             6 to "Restart agent",
             5 to "About",
@@ -315,7 +321,47 @@ class MainActivity : AppCompatActivity() {
                 6 -> restartLocal()
                 8 -> startActivity(Intent(this@MainActivity, PreviewActivity::class.java))
                 9 -> showThemes()
+                10 -> web.evaluateJavascript(Branding.ADD_PROVIDER_JS, null)
+                11 -> backupOut.launch("orloncode-backup-" + java.text.SimpleDateFormat("yyyyMMdd-HHmm", java.util.Locale.US).format(java.util.Date()) + ".zip")
+                12 -> restoreIn.launch(arrayOf("application/zip", "application/octet-stream"))
+                13 -> { LocalServerService.prepareTools(this@MainActivity); toast("Downloading the build tools. Progress shows in the notification.") }
             }
+        }
+    }
+
+    // ---- Backup, restore, background ---------------------------------------------------------
+
+    private fun toast(msg: String) = runOnUiThread { android.widget.Toast.makeText(this, msg, android.widget.Toast.LENGTH_LONG).show() }
+
+    private fun runBackup(uri: Uri) {
+        toast("Backing up…")
+        kotlin.concurrent.thread {
+            try {
+                val n = contentResolver.openOutputStream(uri)?.use { Backup.export(Backup.roots(this), it) } ?: throw java.io.IOException("cannot write there")
+                toast("Backup saved ($n files). Keep it somewhere safe: it contains your signing key.")
+            } catch (e: Exception) { toast("Backup failed: ${e.message}") }
+        }
+    }
+
+    private fun confirmRestore(uri: Uri) {
+        simpleDialog("Restore this backup?", "Files with the same name in your projects are replaced, and the signing key from the backup is restored.", "Restore", "Cancel") {
+            toast("Restoring…")
+            kotlin.concurrent.thread {
+                try {
+                    val n = contentResolver.openInputStream(uri)?.use { Backup.restore(Backup.roots(this), it) } ?: throw java.io.IOException("cannot read that file")
+                    toast("Restored $n files.")
+                } catch (e: Exception) { toast("Restore failed: ${e.message}") }
+            }
+        }
+    }
+
+    /** Once, after the first screen is ready: ask to be exempt from battery optimisation, so Android does not stop long builds. */
+    private fun maybeAskBattery() {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        if (prefs.batteryAsked || pm.isIgnoringBatteryOptimizations(packageName)) return
+        prefs.batteryAsked = true
+        simpleDialog("Keep builds running?", "Android may stop Orlon Code while it builds with the screen off. Allow it to run in the background so long builds finish.", "Allow", "Not now") {
+            try { startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName"))) } catch (e: Exception) { }
         }
     }
 

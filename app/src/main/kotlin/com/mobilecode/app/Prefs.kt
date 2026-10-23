@@ -35,6 +35,15 @@ class Prefs(ctx: Context) {
         get() = sp.getLong("lastApkSeen", 0L)
         set(v) { sp.edit().putLong("lastApkSeen", v).apply() }
 
+    /** The one-time "keep running in the background" prompt has been shown. */
+    var batteryAsked: Boolean
+        get() = sp.getBoolean("batteryAsked", false)
+        set(v) { sp.edit().putBoolean("batteryAsked", v).apply() }
+    /** Download the build tools by themselves while on an unmetered network (can be turned off in the menu). */
+    var prefetch: Boolean
+        get() = sp.getBoolean("prefetch", true)
+        set(v) { sp.edit().putBoolean("prefetch", v).apply() }
+
     /** If something else holds our port (and our own server isn't the one running), pick a new free port. */
     fun rotatePortIfBusy() {
         val port = localPort

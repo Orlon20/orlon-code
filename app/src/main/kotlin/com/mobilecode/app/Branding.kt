@@ -136,7 +136,8 @@ object Branding {
     var RULES = [[/deepseek/, 'deepseek'], [/glm|z\.ai|zhipu/, 'zai'], [/nemotron|nvidia/, 'nvidia'], [/mimo|xiaomi/, 'xiaomi'],
       [/kimi|moonshot/, 'moonshotai'], [/qwen|alibaba/, 'alibaba'], [/minimax/, 'minimax'], [/\bgpt|codex|\bo[134]\b|openai/, 'openai'],
       [/claude|anthropic/, 'anthropic'], [/gemini|gemma|google/, 'google'], [/llama|meta\b/, 'meta'], [/mistral|codestral|devstral/, 'mistral'],
-      [/grok|xai/, 'xai']];
+      [/grok|xai/, 'xai'], [/command[- ]?r|cohere/, 'cohere'], [/sonar|perplexity/, 'perplexity'], [/\bphi[- ]?\d|microsoft/, 'microsoft'], [/granite|ibm/, 'ibm'],
+      [/\bnova\b|titan/, 'amazon-bedrock'], [/big pickle/, 'opencode']];
     var cache = {}, pending = {};
     function lab(text){ text = text.toLowerCase(); for (var i = 0; i < RULES.length; i++) if (RULES[i][0].test(text)) return RULES[i][1]; return null; }
     function get(id, cb){
@@ -157,6 +158,7 @@ object Branding {
       document.querySelectorAll('svg[data-component="provider-icon"]').forEach(function(s){
         var row = s.closest('button, [role="option"], [role="menuitem"], li, [data-slot*="item"]') || s.parentElement;
         var id = row ? lab(row.textContent || '') : null;
+        if (!id) { var u = s.querySelector('use'), h = u && (u.getAttribute('href') || ''), f = h.indexOf('#') >= 0 ? h.slice(h.indexOf('#') + 1) : ''; if (f && (window.__mcLogoIds || []).indexOf(f) >= 0) id = f; }
         if (!id || s.getAttribute('data-mc-lab') === id) return;
         s.setAttribute('data-mc-lab', id);
         get(id, function(v){
@@ -171,6 +173,7 @@ object Branding {
     function rows(){
       document.querySelectorAll('[data-slot="dialog-body"] button').forEach(function(btn){
         var name = btn.querySelector('span.truncate'); if (!name || btn.getAttribute('data-mc-row') === name.textContent) return;
+        if (btn.querySelector('[data-component="provider-icon"], img')) return;
         var id = lab(name.textContent || '');
         btn.setAttribute('data-mc-row', name.textContent);
         var old = btn.querySelector('[data-mc-ico]'); if (old) old.remove();
@@ -186,6 +189,34 @@ object Branding {
     new MutationObserver(function(){ if (pend) return; pend = true; requestAnimationFrame(function(){ pend = false; run(); rows(); }); })
       .observe(document.documentElement, {childList:true, subtree:true});
   } catch(e) {}
+})();
+"""
+
+    /** Settings > Add AI provider: opens the model picker and un-hides OpenCode's "add more providers" entry (hidden there to keep the list clean). */
+    const val ADD_PROVIDER_JS = """
+(function(){
+  try {
+    window.__mcAllowProv = true;
+    setTimeout(function(){ window.__mcAllowProv = false; }, 120000);
+    var btn = document.querySelector('[data-action="prompt-model"]');
+    if (!btn) { window.__mcAllowProv = false; return 'nomodel'; }
+    btn.click();
+    var tries = 0;
+    var t = setInterval(function(){
+      tries++;
+      var hit = null;
+      document.querySelectorAll('[data-slot="dialog-body"] div, [data-component="dialog-body"] div').forEach(function(e){
+        if (e.children.length === 0 && e.textContent.trim() === 'Add more models from popular providers') hit = e;
+      });
+      if (hit) {
+        clearInterval(t);
+        var box = hit.parentElement && hit.parentElement.parentElement;
+        if (box) box.style.display = '';
+        hit.click();
+      } else if (tries > 40) { clearInterval(t); window.__mcAllowProv = false; }
+    }, 150);
+    return 'ok';
+  } catch(e) { return 'err'; }
 })();
 """
 
@@ -235,6 +266,7 @@ object Branding {
   try {
     if (window.__mcNoProv) return; window.__mcNoProv = true;
     function run(){
+      if (window.__mcAllowProv) return;
       try {
         document.querySelectorAll('[data-slot="dialog-body"] div, [data-component="dialog-body"] div').forEach(function(e){
           if (e.children.length === 0 && e.textContent.trim() === 'Add more models from popular providers') {

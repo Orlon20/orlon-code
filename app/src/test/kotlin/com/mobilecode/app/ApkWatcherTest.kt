@@ -46,4 +46,13 @@ class ApkWatcherTest {
         assertEquals("tipcalc · release", apkTitle(File("/x/tipcalc/.orlon/out/app-release.apk")))
         assertEquals("p · other", apkTitle(File("/x/p/.orlon/out/other.apk")))
     }
+
+    @Test fun runningBuildNeedsPidNoDoneAndALiveProcess() {
+        val root = tmp.newFolder()
+        File(root, "a/.orlon").mkdirs(); File(root, "a/.orlon/job.pid").writeText("4242")
+        assertEquals("a", findRunningBuild(root) { it == 4242 })
+        assertNull(findRunningBuild(root) { false })
+        File(root, "a/.orlon/job.done").writeText("0")
+        assertNull(findRunningBuild(root) { true })
+    }
 }

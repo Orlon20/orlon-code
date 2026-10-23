@@ -21,3 +21,23 @@ fun apkTitle(apk: File): String {
     val kind = when { apk.name.contains("release") -> "release"; apk.name.contains("debug") -> "debug"; else -> "other" }
     return "$project · $kind"
 }
+
+/**
+ * The project name of a build that is running right now (its `.orlon/job.pid` exists, no `job.done`, and the process is alive), or null.
+ * [alive] decides whether a pid is still running; the default looks in /proc.
+ */
+fun findRunningBuild(projectsRoot: File, alive: (Int) -> Boolean = { File("/proc/$it").exists() }): String? {
+    fun check(dir: File): String? {
+        val pidFile = File(dir, ".orlon/job.pid")
+        if (!pidFile.isFile || File(dir, ".orlon/job.done").exists()) return null
+        val pid = pidFile.readText().trim().toIntOrNull() ?: return null
+        return if (alive(pid)) dir.name else null
+    }
+    if (!projectsRoot.isDirectory) return null
+    val top = projectsRoot.listFiles { f -> f.isDirectory && !f.name.startsWith(".") } ?: return null
+    for (d in top) {
+        check(d)?.let { return it }
+        d.listFiles { f -> f.isDirectory && !f.name.startsWith(".") && f.name != "build" && f.name != "node_modules" }?.forEach { c -> check(c)?.let { return it } }
+    }
+    return null
+}
